@@ -1,0 +1,190 @@
+# -*- coding: utf-8 -*-
+"""需求文档.xlsx 生成脚本 — 义体记录项目（v0.0.2：新增「所属版本」列）"""
+try:
+    import openpyxl
+except ImportError:
+    import subprocess, sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "openpyxl>=3.1.0"])
+    import openpyxl
+
+from datetime import date
+from openpyxl.styles import Font, PatternFill, Alignment, Side, Border
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.utils import get_column_letter
+
+def xl_color(css_hex: str) -> str:
+    value = css_hex.removeprefix("#").upper()
+    if len(value) != 6:
+        raise ValueError(f"Expected #RRGGBB, got: {css_hex}")
+    return "FF" + value
+
+XL_HEADER_BG = xl_color("#4472C4")
+XL_INPUT_BG = xl_color("#D9E2F3")
+XL_BORDER = xl_color("#BFBFBF")
+XL_GREEN_BG = xl_color("#C6EFCE"); XL_GREEN_FG = xl_color("#006100")
+XL_YELLOW_BG = xl_color("#FFEB9C"); XL_YELLOW_FG = xl_color("#9C6500")
+
+thin = Side(style="thin", color=XL_BORDER)
+border_all = Border(left=thin, right=thin, top=thin, bottom=thin)
+font_header = Font(bold=True, color="FFFFFFFF", size=11)
+font_body = Font(size=11)
+fill_header = PatternFill("solid", fgColor=XL_HEADER_BG)
+fill_input = PatternFill("solid", fgColor=XL_INPUT_BG)
+align_c = Alignment(horizontal="center", vertical="center")
+align_l = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+D = date(2026, 11, 10)
+
+# (编号, 所属版本, 模块, 需求描述, 来源, 状态, 日期, 备注)
+REQS = [
+    ("R01", "v0.0.1", "整体", "赛博朋克2077义体改造界面风格的网页：中央人体图 + 左侧状态总览面板 + 右侧部位详情面板", "用户", "已完成", D, ""),
+    ("R02", "v0.0.1", "部位", "以人外观可见部位为主，不细化到器官/肌肉（头、眼、鼻、嘴、耳、大臂、肘、小臂、腕、手背、手指、大腿、膝、小腿、脚踝、脚等）", "用户", "已完成", D, ""),
+    ("R03", "v0.0.1", "交互", "鼠标悬停部位时高亮（霓虹发光效果）并显示部位名称提示", "用户", "已完成", D, ""),
+    ("R04", "v0.0.1", "交互", "点击部位后在面板中勾选状态并填写备注", "用户", "已完成", D, "v0.0.2起改为单选，见R24"),
+    ("R05", "v0.0.1", "数据", "数据保存在本地（浏览器 localStorage，刷新不丢失，无需联网）", "用户", "已完成", D, ""),
+    ("R06", "v0.0.1", "数据", "支持 JSON 格式导出 / 导入，用于备份与迁移", "用户", "已完成", D, ""),
+    ("R07", "v0.0.1", "交互", "提供正面 / 背面视图切换按钮", "用户", "已完成", D, ""),
+    ("R08", "v0.0.1", "交互", "切换按钮带数量角标：显示该视图下有记录（存在问题）的部位数量", "用户", "已完成", D, ""),
+    ("R09", "v0.0.1", "部位", "左右对称部位分开记录（如左腕 / 右腕各自独立）", "用户", "已完成", D, ""),
+    ("R10", "v0.0.1", "历史", "每次保存都会记录一个存档并加上时间戳（类似快照），保留修改历史", "用户", "已完成", D, ""),
+    ("R11", "v0.0.1", "部位", "部位清单通过《部位维护表.xlsx》维护：用户在表中添加/修改/标记删除，AI 根据表格内容更新网页", "用户", "已完成", D, ""),
+    ("R12", "v0.0.1", "项目", "需求统一记录在《需求文档.xlsx》：先记录已确认需求，后续新增需求由用户在表中补充", "用户", "已完成", D, ""),
+    ("R13", "v0.0.1", "项目", "文件位置 F:\\AIproject\\义体记录\\：网页放根目录，资源文件放不同子文件夹（文档/资源/数据备份）", "用户", "已完成", D, ""),
+    ("R14", "v0.0.1", "视觉", "人体部位按状态着色，一眼看出全身状况", "方案默认", "已完成", D, "v0.0.2起颜色方案调整，见R25"),
+    ("R15", "v0.0.1", "数据", "数据结构：version + owner + updatedAt + parts{部位ID: {名称, flags, note, history[]}} + snapshots[]", "方案默认", "已完成", D, ""),
+    ("R16", "v0.0.1", "交互", "左侧边栏显示全部部位列表（按身体区域分组），点击列表项可定位选中对应部位", "方案默认", "已完成", D, ""),
+    ("R17", "v0.0.1", "历史", "全身快照：每次保存自动生成/更新全身整体快照（10分钟内合并为一条），支持选择任意快照回看当时全身所有部位状态（人体图着色+列表联动），可返回当前", "用户", "已完成", D, ""),
+    ("R18", "v0.0.1", "交互", "状态选项增加「正常」（已检查无问题），暂不加疼痛等级等其他等级", "用户", "已完成", D, "v0.0.2起正常为默认状态，见R24"),
+    ("R19", "v0.0.1", "视觉", "部位与界面文字纯中文显示，不使用中英混排", "用户", "已完成", D, ""),
+    ("R20", "v0.0.1", "项目", "仅保证电脑浏览器使用体验，暂不适配手机", "用户", "已完成", D, ""),
+    ("R21", "v0.0.1", "数据", "不做多档案切换；做身份核对：本机身份为 yxz，数据中记录身份字段，导入他人数据时提示「信息错误」", "用户", "已完成", D, ""),
+    ("R22", "v0.0.1", "交互", "左侧边栏显示全部部位列表，点击列表项与点击人体部位效果相同，可在右侧编辑", "用户", "已完成", D, ""),
+    ("R23", "v0.0.1", "项目", "编写版本说明文档（README.md）：文件结构、使用方法、如何加需求/改需求", "用户", "已完成", D, ""),
+    ("R24", "v0.0.2", "交互", "状态复选框改为单选（只能选一个状态），所有部位默认状态为「正常」（未记录的部位视为正常）", "用户", "已完成", D, ""),
+    ("R25", "v0.0.2", "视觉", "扫描线扫过异常部位时按状态闪烁一次后熄灭：不适=黄光、需治疗=红光、需锻炼=绿光；状态颜色方案全局同步调整为 不适=黄/需治疗=红/需锻炼=绿/正常=青白（复选框、人体图着色、列表标签、图例、统计一致）", "用户", "已完成", D, "v0.0.3起闪烁加快，见R26"),
+    ("R26", "v0.0.3", "视觉", "扫描线扫过部位时的闪烁速度加快：快速闪一下即熄灭（0.28秒）", "用户", "已完成", D, ""),
+    ("R27", "v0.0.3", "交互", "选择状态单选项后立即自动保存（无需点保存按钮）；备注输入停止1秒后自动保存；1分钟内同状态连续保存合并为一条历史；底栏新增「全局存档」按钮：手动强制生成一条全身快照（不与自动快照合并）", "用户", "已完成", D, ""),
+    ("R28", "v0.0.3", "部位", "新增「生殖器」部位（仅正面），用一个小长方形表示", "用户", "已完成", D, ""),
+    ("R29", "v0.0.3", "视觉", "去掉人体图最底部的椭圆（站台底座装饰）", "用户", "已完成", D, ""),
+    ("R30", "v0.0.3", "交互", "部位详情的状态选项顺序调整为：需治疗、不适、需锻炼、正常", "用户", "已完成", D, ""),
+    ("R31", "v0.0.3", "交互", "切换单选项时，上一个选项的颜色恢复默认（只有当前选中项保持高亮配色）", "用户", "已完成", D, ""),
+    ("R32", "v0.0.4", "视觉", "部位列表中分组大标题（头部/颈部/躯干/上肢/下肢）字体变大，每组子器官用边框框起来", "用户", "已完成", D, ""),
+    ("R33", "v0.0.4", "视觉", "扫描线扫过异常部位的闪烁特效改为快速渐亮再渐灭（0.5秒平滑过渡）", "用户", "已完成", D, ""),
+    ("R34", "v0.0.4", "视觉", "关节贴图（肩/肘/腕/膝）绘制在躯干与四肢的上层，保证关节不被遮挡", "用户", "已完成", D, ""),
+    ("R35", "v0.0.4", "视觉", "底部提示文字只显示「身份核对 yxz」", "用户", "已完成", D, ""),
+    ("R36", "v0.0.4", "交互", "「全局存档」「回看快照」保留在底部快捷栏；导出数据/导入数据/清空数据移入「高级设置」按钮弹窗中", "用户", "已完成", D, ""),
+    ("R37", "v0.0.4", "部位", "新增「肛门」部位（仅背面），用小长方形表示，放在臀部中间靠下位置", "用户", "已完成", D, ""),
+    ("R38", "v0.0.5", "视觉", "右上角状态栏去掉「正常」统计项，只统计已记录/不适/需治疗/需锻炼", "用户", "已完成", D, ""),
+    ("R39", "v0.0.5", "视觉", "鼠标悬停部位时，提示框文字与边框颜色跟随该部位当前状态（不适=黄、需治疗=红、需锻炼=绿、正常/无记录=青）", "用户", "已完成", D, ""),
+    ("R40", "v0.0.5", "交互", "统计异常已持续天数：从首次被标记异常那天起算，切换异常类型不重算，恢复正常清零；天数显示在右侧面板「需治疗」框右侧，字体颜色跟随当前状态", "用户", "已完成", D, "数据结构新增 since 字段"),
+    ("R41", "v0.0.5", "视觉", "左侧部位列表子器官名称文字提亮，提高在当前深色背景上的可读性", "用户", "已完成", D, ""),
+    ("R42", "v0.0.5", "视觉", "移除页面上的设计理念类说明文字（如「数据管理操作集中在高级设置中，避免误触」），避免把设计说明当作文案展示", "用户", "已完成", D, ""),
+    ("R43", "v0.0.5", "数据", "点「保存到文件」把完整数据下载为本地 JSON 文件（不只依赖浏览器缓存），并生成一条全局存档快照；底栏显示未存盘标记；高级设置改为「下载数据文件/载入数据文件/清空数据」；快照保留最近 300 条，更早按周归档、超过 1 年按月归档", "用户", "已完成", D, "浏览器限制：网页无法自动写磁盘，进入页面仍需手动载入文件"),
+    ("R44", "v0.0.6", "交互", "异常持续天数改为显示在右侧部位详情面板的「部位名称右侧」（如「胸  异常 3 天」），不再挂在「需治疗」选项框上", "用户", "已完成", D, ""),
+    ("R45", "v0.0.6", "历史", "单部位历史快照支持逐条删除（可在多条记录中间选择性删除，如 4 条中删掉中间 2 条、保留首尾），删除前二次确认", "用户", "已完成", D, ""),
+    ("R46", "v0.0.6", "交互", "异常天数从 0 天开始计（首次标记异常当天显示「异常 0 天」，次日为 1 天）", "用户", "已完成", D, ""),
+    ("R47", "v0.0.6", "交互", "左侧部位列表在异常部位的名称与状态标签右侧也显示异常天数（如「胸 需治疗 异常 1 天」），颜色跟随状态", "用户", "已完成", D, ""),
+    ("R48", "v0.0.6", "数据", "「保存到文件」直接写入用户指定的数据文件夹（首次选择后记住目录，之后静默覆盖写 body_records.json）；「载入数据文件」优先列出该文件夹内的 JSON 文件供选择；浏览器不支持时降级为下载", "用户", "已完成", D, "Chrome/Edge 的 File System Access API；目录句柄存 IndexedDB"),
+    ("R49", "v0.0.6", "视觉", "去掉左上角「BODY_OS」版本字样，标题只保留「义体维护终端」", "用户", "已完成", D, ""),
+    ("R50", "v0.0.7", "视觉", "大臂/小臂/大腿/小腿的素材改为半透明填充轮廓（与躯干等其他部位同一材质），不再用实心粗线条", "用户", "已完成", D, ""),
+    ("R51", "v0.0.7", "视觉", "手腕与脚踝改用与肘关节一致的圆形关节素材，并绘制在肢体上层", "用户", "已完成", D, ""),
+    ("R52", "v0.0.7", "部位", "脚拆分为三块：脚掌（正面）、脚底（背面）、脚趾（双面）；原「左脚/右脚」移除", "用户", "已完成", D, "部位总数 50"),
+    ("R53", "v0.0.7", "数据", "高级设置新增「保存路径配置」：可查看各子文件夹绝对路径作为参考；「保存到文件」只写入已绑定的数据文件夹，不再区分首次/多次（未绑定时提示去配置）", "用户", "已完成", D, "浏览器不暴露真实绝对路径，根目录为可编辑的参考值"),
+    ("R54", "v0.0.7", "部位", "新增「头发」部位，正面与背面都有图形，共用同一份记录", "用户", "已完成", D, "正面为发际线+发型，背面为后脑头发"),
+    ("R55", "v0.0.8", "数据", "排查并加固「选择 / 更换数据文件夹」按钮：失败原因不再被静默吞掉（取消/不支持/连点冲突/权限拒绝/浏览器抛错分别提示），增加防连点、权限状态展示、绑定后写入自检，绑定失败可直接看到原因", "用户", "已完成", D, "原实现 catch 后返回 null 且只在成功时提示，失败时按钮像「没反应」"),
+    ("R56", "v0.0.8", "部位", "脚部放大并改为三层结构：脚背在上层，脚背前端为脚趾，脚背下方紧贴脚底；脚背/脚底/脚趾在正面与背面两张图中都不分正反显示（双面）", "用户", "已完成", D, "「左脚掌/右脚掌」改名为「左脚背/右脚背」，视图由正面改为双面"),
+    ("R57", "v0.0.8", "数据", "高级设置中移除「下载数据文件」按钮（与底部「保存到文件」重复）；仅在写入数据文件夹失败时询问是否降级下载一份临时备份", "用户", "已完成", D, ""),
+]
+
+HEADERS = ["需求编号", "所属版本", "模块", "需求描述", "来源", "状态", "提出日期", "备注"]
+COL_WIDTHS = [9, 10, 8, 58, 10, 10, 12, 22]
+
+wb = openpyxl.Workbook()
+ws = wb.active
+ws.title = "需求清单"
+
+for ci, (h, w) in enumerate(zip(HEADERS, COL_WIDTHS), start=1):
+    cell = ws.cell(row=1, column=ci, value=h)
+    cell.font = font_header
+    cell.fill = fill_header
+    cell.alignment = align_c
+    cell.border = border_all
+    ws.column_dimensions[get_column_letter(ci)].width = w
+ws.row_dimensions[1].height = 22
+
+data_start = 2
+data_end = 1 + len(REQS)
+reserved_rows = 5
+row_end = data_end + reserved_rows
+
+for i, (rid, ver, mod, desc, src, status, d, note) in enumerate(REQS):
+    r = data_start + i
+    vals = [rid, ver, mod, desc, src, status, d, note]
+    for ci, v in enumerate(vals, start=1):
+        cell = ws.cell(row=r, column=ci, value=v)
+        cell.font = font_body
+        cell.border = border_all
+        if ci == 7:
+            cell.number_format = "YYYY-MM-DD"
+        cell.alignment = align_l if ci in (4, 8) else align_c
+    ws.row_dimensions[r].height = 32
+
+for r in range(data_end + 1, row_end + 1):
+    for ci in range(1, 9):
+        cell = ws.cell(row=r, column=ci)
+        cell.font = font_body
+        cell.border = border_all
+        cell.fill = fill_input
+        if ci == 7:
+            cell.number_format = "YYYY-MM-DD"
+        cell.alignment = align_l if ci in (4, 8) else align_c
+
+dv_ver = DataValidation(type="list", formula1='"v0.0.1,v0.0.2,v0.0.3,v0.0.4,v0.0.5,v0.0.6,v0.0.7,v0.0.8,v0.1.0,v1.0.0"', allow_blank=True)
+dv_mod = DataValidation(type="list", formula1='"整体,视觉,部位,交互,数据,历史,项目"', allow_blank=True)
+dv_src = DataValidation(type="list", formula1='"用户,方案默认,AI提问"', allow_blank=True)
+dv_status = DataValidation(type="list", formula1='"已确认,待确认,新增,已完成,已放弃"', allow_blank=True)
+for dv, col in ((dv_ver, "B"), (dv_mod, "C"), (dv_src, "E"), (dv_status, "F")):
+    ws.add_data_validation(dv)
+    dv.add(f"{col}{data_start}:{col}{row_end}")
+
+status_range = f"F{data_start}:F{row_end}"
+ws.conditional_formatting.add(status_range, CellIsRule(
+    operator="equal", formula=['"已完成"'],
+    fill=PatternFill("solid", fgColor=XL_GREEN_BG), font=Font(color=XL_GREEN_FG)))
+ws.conditional_formatting.add(status_range, CellIsRule(
+    operator="equal", formula=['"待确认"'],
+    fill=PatternFill("solid", fgColor=XL_YELLOW_BG), font=Font(color=XL_YELLOW_FG)))
+ws.conditional_formatting.add(status_range, CellIsRule(
+    operator="equal", formula=['"已确认"'],
+    fill=PatternFill("solid", fgColor=XL_GREEN_BG), font=Font(color=XL_GREEN_FG)))
+
+ws.freeze_panes = "A2"
+ws.auto_filter.ref = f"A1:H{row_end}"
+
+# ---- 填写说明 sheet ----
+ws2 = wb.create_sheet("填写说明")
+ws2.column_dimensions["A"].width = 14
+ws2.column_dimensions["B"].width = 80
+title = ws2.cell(row=1, column=1, value="需求文档 — 使用说明")
+title.font = Font(bold=True, size=13, color=XL_HEADER_BG[2:])
+notes = [
+    ("新增需求", "在「需求清单」末尾浅蓝色空白行填写：所属版本（当前最新版本号）、模块、需求描述、来源填「用户」、状态选「新增」。"),
+    ("所属版本", "标注需求首次提出所属的版本号（如 v0.0.1 / v0.0.2），下拉选择，便于按版本追溯。"),
+    ("回答待确认项", "状态为「待确认」的需求，可直接在「备注」列写答案并把状态改为「已确认」。"),
+    ("状态说明", "已确认=双方确认要做；待确认=等用户答复；新增=用户刚提出待AI确认；已完成=已在网页实现；已放弃=不做。"),
+    ("模块说明", "整体/视觉/部位/交互/数据/历史/项目，用于筛选归类。"),
+    ("更新流程", "表中改动后，在对话里告诉AI「需求文档已更新」，AI会按表实施并回填状态。"),
+]
+for i, (k, v) in enumerate(notes, start=3):
+    c1 = ws2.cell(row=i, column=1, value=k)
+    c1.font = Font(bold=True)
+    c1.alignment = Alignment(horizontal="left", vertical="center")
+    c2 = ws2.cell(row=i, column=2, value=v)
+    c2.font = font_body
+    c2.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    ws2.row_dimensions[i].height = 34
+
+wb.properties.title = "需求文档"
+wb.save(r"F:\AIproject\义体记录\文档\需求文档.xlsx")
+print("OK 需求文档")

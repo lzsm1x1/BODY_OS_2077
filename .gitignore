@@ -1,0 +1,16 @@
+# ---- 个人数据：不上传 ----
+# 数据文件夹里是本人身体记录（含身份标识），属于隐私数据
+数据备份/*
+!数据备份/.gitkeep
+body_records*.json
+*.bak
+
+# ---- 系统 / 编辑器 ----
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
+*.tmp
+~$*
+.vscode/
+.idea/

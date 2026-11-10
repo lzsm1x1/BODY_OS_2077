@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<!-- 义体维护终端 v0.0.8 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>义体维护终端</title>
+<style>
+:root{
+  --cyan:#00f0ff; --cyan-dim:rgba(0,240,255,.45); --cyan-faint:rgba(0,240,255,.07);
+  --yellow:#fcee0a; --red:#ff2a6d; --green:#00ff9c; --ok:#9adcf0;
+  --bg:#05080f; --panel:rgba(8,15,26,.92); --line:rgba(0,240,255,.28);
+  --text:#c8e6ee; --muted:#5d7d8a;
+  --font:"Consolas","Courier New","Microsoft YaHei",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;
+  background-image:
+    linear-gradient(rgba(0,240,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,240,255,.03) 1px,transparent 1px);
+  background-size:44px 44px;
+}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:99;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);}
+.app{display:grid;grid-template-columns:240px minmax(0,1fr) 330px;grid-template-rows:auto minmax(0,1fr) auto;
+  gap:10px;height:100vh;padding:10px}
+header,footer{grid-column:1/-1}
+/* ---------- 头部 ---------- */
+header{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;
+  background:var(--panel);border:1px solid var(--line);
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));}
+.logo{display:flex;align-items:baseline;gap:14px}
+.glitch{position:relative;font-size:22px;font-weight:700;color:var(--yellow);letter-spacing:2px;text-shadow:0 0 8px rgba(252,238,10,.5)}
+.glitch::before,.glitch::after{content:attr(data-text);position:absolute;left:0;top:0;width:100%;overflow:hidden}
+.glitch::before{color:var(--cyan);clip-path:inset(0 0 100% 0);animation:g1 3s infinite steps(1)}
+.glitch::after{color:var(--red);clip-path:inset(0 0 100% 0);animation:g2 3s infinite steps(1)}
+@keyframes g1{0%,90%{clip-path:inset(0 0 100% 0);transform:none}
+  91%{clip-path:inset(15% 0 50% 0);transform:translate(-2px,1px)}
+  94%{clip-path:inset(55% 0 15% 0);transform:translate(2px,-1px)}
+  97%,100%{clip-path:inset(0 0 100% 0);transform:none}}
+@keyframes g2{0%,90%{clip-path:inset(0 0 100% 0);transform:none}
+  92%{clip-path:inset(60% 0 10% 0);transform:translate(2px,1px)}
+  95%{clip-path:inset(10% 0 60% 0);transform:translate(-2px,-1px)}
+  98%,100%{clip-path:inset(0 0 100% 0);transform:none}}
+.sub{color:var(--muted);font-size:11px;letter-spacing:3px}
+.stats{font-size:12px;color:var(--muted);display:flex;gap:13px;align-items:center}
+.stats b{font-size:16px;font-weight:700}
+.c-red{color:var(--red)}.c-yel{color:var(--yellow)}.c-grn{color:var(--green)}.c-cyn{color:var(--cyan)}.c-ok{color:var(--ok)}
+/* ---------- 面板通用 ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;min-height:0;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));}
+.panel h2{font-size:12px;letter-spacing:3px;color:var(--cyan);padding:12px 14px 8px;border-bottom:1px solid rgba(0,240,255,.15)}
+/* ---------- 左侧部位列表 ---------- */
+#ovList{overflow-y:auto;flex:1;padding:4px 6px}
+#ovList .grp{font-size:15px;font-weight:700;color:var(--yellow);letter-spacing:2px;padding:10px 6px 4px;
+  text-shadow:0 0 6px rgba(252,238,10,.4)}
+#ovList .grp-box{border:1px solid rgba(0,240,255,.3);background:rgba(0,240,255,.025);padding:4px;margin:0 2px 10px;
+  display:flex;flex-direction:column;gap:2px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+#ovList .pl-item{display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;border:1px solid transparent;font-size:13px}
+#ovList .pl-item:hover{border-color:var(--line);background:rgba(0,240,255,.06)}
+#ovList .pl-item.active{border-color:var(--yellow);background:rgba(252,238,10,.06)}
+#ovList .pn{min-width:44px;color:#cfe8f2}
+#ovList .pn.dim{color:#7fa2b2}
+#ovList .pl-days{margin-left:auto;font-size:10px;letter-spacing:0;white-space:nowrap}
+.legend{padding:9px 14px;border-top:1px solid rgba(0,240,255,.15);font-size:11px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:8px;height:8px;margin-right:4px;vertical-align:middle}
+.chip{font-size:10px;padding:1px 5px;border:1px solid;letter-spacing:1px;white-space:nowrap}
+.chip.discomfort{color:var(--yellow);border-color:var(--yellow);background:rgba(252,238,10,.1)}
+.chip.treat{color:var(--red);border-color:var(--red);background:rgba(255,42,109,.12)}
+.chip.train{color:var(--green);border-color:var(--green);background:rgba(0,255,156,.1)}
+.chip.ok{color:var(--ok);border-color:var(--ok);background:rgba(154,220,240,.08)}
+/* ---------- 中央舞台 ---------- */
+.stage{position:relative;display:flex;flex-direction:column;min-height:0}
+.view-toggle{display:flex;justify-content:center;gap:12px;padding:8px 0}
+.view-btn{position:relative;font-family:var(--font);font-size:13px;letter-spacing:2px;color:var(--muted);
+  background:rgba(0,240,255,.04);border:1px solid rgba(0,240,255,.2);padding:8px 30px;cursor:pointer;transition:all .15s;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.view-btn:hover{color:var(--cyan);border-color:var(--cyan)}
+.view-btn.active{color:var(--yellow);border-color:var(--yellow);background:rgba(252,238,10,.08);text-shadow:0 0 8px rgba(252,238,10,.6)}
+.badge{position:absolute;top:-8px;right:-8px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;
+  background:var(--red);color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center;
+  box-shadow:0 0 8px rgba(255,42,109,.8);display:none}
+.badge.show{display:block}
+/* 快照回看横幅 */
+#snapBanner{display:none;align-items:center;justify-content:center;gap:14px;margin:2px 16px;padding:7px 14px;
+  background:rgba(252,238,10,.08);border:1px solid var(--yellow);font-size:13px;color:var(--yellow);letter-spacing:1px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+#snapBanner.show{display:flex}
+#snapBanner button{font-family:var(--font);font-size:12px;padding:3px 14px;cursor:pointer;
+  color:#031;background:var(--yellow);border:none;font-weight:700}
+#snapBanner button:hover{box-shadow:0 0 10px rgba(252,238,10,.6)}
+.svg-wrap{flex:1;min-height:0;display:flex;justify-content:center;align-items:center;position:relative;overflow:hidden}
+.scanline{position:absolute;left:6%;right:6%;height:2px;pointer-events:none;top:2%;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.4}
+.svg-wrap svg{height:100%;max-width:100%;display:none}
+.svg-wrap svg.show{display:block}
+/* ---------- 人体部位 ---------- */
+.part{cursor:pointer;outline:none;transition:filter .15s;
+  --c:var(--cyan-dim);--c-hi:var(--cyan);--f:var(--cyan-faint);--f-hi:rgba(0,240,255,.28)}
+.part .sl{fill:none;stroke:var(--c);stroke-linecap:round}
+.part .sf{fill:var(--f);stroke:var(--c);stroke-width:1.5}
+.part:hover,.part:focus-visible,.part.selected{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 16px var(--c))}
+.part:hover .sl,.part:focus-visible .sl,.part.selected .sl{stroke:var(--c-hi)}
+.part:hover .sf,.part:focus-visible .sf,.part.selected .sf{fill:var(--f-hi);stroke:var(--c-hi)}
+.part.selected .sf{stroke-dasharray:5 3}
+.st-discomfort{--c:var(--yellow);--c-hi:#fdf75c;--f:rgba(252,238,10,.16);--f-hi:rgba(252,238,10,.34)}
+.st-treat{--c:var(--red);--c-hi:#ff6b97;--f:rgba(255,42,109,.2);--f-hi:rgba(255,42,109,.4)}
+.st-train{--c:var(--green);--c-hi:#4dffb8;--f:rgba(0,255,156,.14);--f-hi:rgba(0,255,156,.32)}
+/* 扫描线闪烁：扫过异常部位时快速渐亮再渐灭 */
+@keyframes flashK{0%{filter:none}35%{filter:drop-shadow(0 0 7px var(--fc)) drop-shadow(0 0 24px var(--fc))}100%{filter:none}}
+.part.flash-discomfort{--fc:#fdf75c;--c:#fdf75c;--c-hi:#fdf75c;--f:rgba(252,238,10,.5);animation:flashK .5s ease-in-out 1;transition:none}
+.part.flash-treat{--fc:#ff6b97;--c:#ff6b97;--c-hi:#ff6b97;--f:rgba(255,42,109,.5);animation:flashK .5s ease-in-out 1;transition:none}
+.part.flash-train{--fc:#4dffb8;--c:#4dffb8;--c-hi:#4dffb8;--f:rgba(0,255,156,.45);animation:flashK .5s ease-in-out 1;transition:none}
+/* ---------- 悬浮提示 ---------- */
+#tip{position:fixed;z-index:100;pointer-events:none;display:none;font-size:12px;
+  background:rgba(5,10,18,.95);border:1px solid var(--tc,var(--cyan));padding:6px 10px;letter-spacing:1px;
+  color:var(--tc,var(--cyan));box-shadow:0 0 12px color-mix(in srgb,var(--tc,var(--cyan)) 35%,transparent)}
+#tip .t-flags{display:block;margin-top:2px;font-size:11px;color:var(--tc,var(--cyan))}
+/* ---------- 右侧详情 ---------- */
+#panelBody{display:none;flex-direction:column;overflow-y:auto;padding:14px;gap:11px}
+#panelBody.show{display:flex}
+#panelEmpty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;
+  text-align:center;line-height:2;padding:20px;letter-spacing:1px}
+.p-title{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid rgba(0,240,255,.15);padding-bottom:10px}
+.p-title .cn{font-size:22px;color:var(--yellow);text-shadow:0 0 8px rgba(252,238,10,.4);font-weight:700}
+.p-updated{font-size:11px;color:var(--muted)}
+.chk{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;font-size:14px;
+  border:1px solid rgba(0,240,255,.18);transition:all .15s;user-select:none;color:#8a9aa5}
+.chk .box{width:16px;height:16px;border:1px solid var(--muted);position:relative;flex:none}
+.chk input{display:none}
+.chk input:checked + .box{border-color:currentColor}
+.p-title .p-days{margin-left:auto;font-size:12px;letter-spacing:1px;white-space:nowrap;font-weight:400}
+.d-treat{color:var(--red);text-shadow:0 0 6px rgba(255,42,109,.5)}
+.d-discomfort{color:var(--yellow);text-shadow:0 0 6px rgba(252,238,10,.5)}
+.d-train{color:var(--green);text-shadow:0 0 6px rgba(0,255,156,.5)}
+.chk input:checked + .box::after{content:'';position:absolute;inset:3px;background:currentColor;box-shadow:0 0 6px currentColor}
+.chk.on.f-discomfort{color:var(--yellow);border-color:var(--yellow);background:rgba(252,238,10,.08);text-shadow:0 0 6px var(--yellow)}
+.chk.on.f-treat{color:var(--red);border-color:var(--red);background:rgba(255,42,109,.1);text-shadow:0 0 6px var(--red)}
+.chk.on.f-train{color:var(--green);border-color:var(--green);background:rgba(0,255,156,.08);text-shadow:0 0 6px var(--green)}
+.chk.on.f-ok{color:var(--ok);border-color:var(--ok);background:rgba(154,220,240,.08);text-shadow:0 0 6px var(--ok)}
+#pNote{font-family:var(--font);background:rgba(0,240,255,.04);border:1px solid rgba(0,240,255,.2);color:var(--text);
+  padding:10px;font-size:13px;min-height:76px;resize:vertical;line-height:1.6}
+#pNote:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 8px rgba(0,240,255,.25)}
+.btn{font-family:var(--font);font-size:13px;letter-spacing:2px;cursor:pointer;transition:all .15s;padding:10px}
+#btnClearPart{background:transparent;border:1px solid rgba(255,42,109,.4);color:var(--red)}
+#btnClearPart:hover{background:rgba(255,42,109,.12);box-shadow:0 0 10px rgba(255,42,109,.4)}
+.p-history h3{font-size:11px;letter-spacing:2px;color:var(--cyan);margin-bottom:8px}
+#pHistory{list-style:none;display:flex;flex-direction:column;gap:8px}
+#pHistory li{border:1px solid rgba(0,240,255,.15);padding:8px 10px;font-size:12px;position:relative}
+#pHistory .h-time{color:var(--cyan);font-size:11px;letter-spacing:1px;padding-right:104px}
+#pHistory .h-note{color:var(--text);margin-top:3px;line-height:1.5;word-break:break-all}
+#pHistory .h-flags{margin-top:4px;display:flex;gap:5px;flex-wrap:wrap}
+#pHistory .h-ops{position:absolute;top:6px;right:8px;display:flex;gap:4px}
+#pHistory .h-btn{background:none;border:1px solid rgba(0,240,255,.3);color:var(--cyan);
+  font-family:var(--font);font-size:10px;padding:2px 7px;cursor:pointer;letter-spacing:1px}
+#pHistory .h-btn:hover{background:rgba(0,240,255,.12)}
+#pHistory .h-del{color:var(--red);border-color:rgba(255,42,109,.35)}
+#pHistory .h-del:hover{background:rgba(255,42,109,.15)}
+#pHistory li.h-pick{border-color:var(--yellow)}
+.h-empty{color:var(--muted);font-size:12px}
+/* ---------- 快照模态框 ---------- */
+.modal{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;
+  background:rgba(2,5,10,.8)}
+.modal.show{display:flex}
+.modal-box{width:760px;max-width:94vw;max-height:86vh;background:var(--panel);border:1px solid var(--cyan);
+  box-shadow:0 0 30px rgba(0,240,255,.25);display:flex;flex-direction:column;
+  clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px))}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;
+  border-bottom:1px solid rgba(0,240,255,.2);font-size:15px;color:var(--yellow);letter-spacing:2px}
+.modal-head button{background:none;border:1px solid rgba(255,42,109,.5);color:var(--red);
+  font-family:var(--font);font-size:12px;padding:3px 10px;cursor:pointer}
+.modal-head button:hover{background:rgba(255,42,109,.15)}
+.modal-body{display:grid;grid-template-columns:250px 1fr;min-height:0;flex:1}
+#snapList{list-style:none;overflow-y:auto;border-right:1px solid rgba(0,240,255,.15);padding:8px}
+#snapList li{padding:9px 10px;cursor:pointer;border:1px solid transparent;font-size:12px}
+#snapList li:hover{border-color:var(--line);background:rgba(0,240,255,.06)}
+#snapList li.active{border-color:var(--yellow);background:rgba(252,238,10,.06)}
+#snapList .sl-time{color:var(--cyan);letter-spacing:1px}
+#snapList .sl-n{color:var(--muted);font-size:11px;margin-top:2px}
+#snapList .sl-empty{color:var(--muted);cursor:default;padding:14px 10px;line-height:1.8}
+#snapDetail{overflow-y:auto;padding:14px 16px;font-size:13px}
+#snapDetail .sd-empty{color:var(--muted);text-align:center;padding:40px 0;letter-spacing:1px}
+#snapDetail .sd-head{color:var(--yellow);letter-spacing:1px;border-bottom:1px solid rgba(0,240,255,.15);padding-bottom:8px;margin-bottom:10px}
+#snapDetail .sd-view{font-family:var(--font);font-size:12px;padding:6px 16px;cursor:pointer;margin-bottom:12px;
+  color:#031;background:var(--cyan);border:none;font-weight:700}
+#snapDetail .sd-view:hover{background:#6ff6ff;box-shadow:0 0 12px rgba(0,240,255,.5)}
+#snapDetail ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+#snapDetail li{border:1px solid rgba(0,240,255,.15);padding:8px 10px}
+#snapDetail .sd-name{font-size:14px}
+#snapDetail .sd-note{color:var(--text);margin-top:3px;line-height:1.5}
+#snapDetail .sd-flags{margin-top:4px;display:flex;gap:5px;flex-wrap:wrap}
+#snapDetail .sd-none{color:var(--muted)}
+/* ---------- 底部 ---------- */
+footer{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--panel);border:1px solid var(--line);
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));}
+footer .hint{font-size:11px;color:var(--muted);letter-spacing:1px;margin-right:auto}
+footer .hint.dirty{color:var(--yellow)}
+footer button{font-family:var(--font);font-size:12px;letter-spacing:1px;color:var(--cyan);background:rgba(0,240,255,.05);
+  border:1px solid rgba(0,240,255,.3);padding:7px 16px;cursor:pointer;transition:all .15s}
+footer button:hover{background:rgba(0,240,255,.15);box-shadow:0 0 8px rgba(0,240,255,.35)}
+footer button.danger{color:var(--red);border-color:rgba(255,42,109,.4);background:rgba(255,42,109,.05)}
+footer button.danger:hover{background:rgba(255,42,109,.15);box-shadow:0 0 8px rgba(255,42,109,.4)}
+/* ---------- 高级设置弹窗 ---------- */
+.adv-box{width:480px}
+.adv-body{display:flex;flex-direction:column;gap:10px;padding:18px}
+.adv-title{font-size:11px;letter-spacing:2px;color:var(--yellow);opacity:.85;
+  border-bottom:1px solid rgba(252,238,10,.18);padding-bottom:5px;margin-top:2px}
+.path-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.path-row .pk{color:var(--muted);letter-spacing:1px;flex:none;min-width:66px}
+.path-row input{flex:1;font-family:var(--font);font-size:12px;background:rgba(0,240,255,.04);
+  border:1px solid rgba(0,240,255,.2);color:var(--text);padding:6px 8px}
+.path-row input:focus{outline:none;border-color:var(--cyan)}
+.path-row .bound{color:var(--cyan);word-break:break-all}
+.path-list{list-style:none;display:flex;flex-direction:column;gap:4px;font-size:11px}
+.path-list li{display:flex;gap:8px;line-height:1.6}
+.path-list .pn{color:var(--muted);flex:none;min-width:66px;letter-spacing:1px}
+.path-list .pv{color:#8fb8c6;word-break:break-all}
+.adv-note{font-size:11px;line-height:1.7;color:var(--muted);border-left:2px solid rgba(0,240,255,.25);
+  padding:4px 0 4px 8px;letter-spacing:.5px}
+.adv-note.warn{color:var(--yellow);border-left-color:var(--yellow)}
+.adv-note.err{color:var(--red);border-left-color:var(--red)}
+.adv-btns{display:flex;gap:8px}
+.adv-btns button{flex:1}
+.adv-body button{font-family:var(--font);font-size:13px;letter-spacing:2px;cursor:pointer;transition:all .15s;padding:11px;
+  color:var(--cyan);background:rgba(0,240,255,.05);border:1px solid rgba(0,240,255,.3);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.adv-body button:hover{background:rgba(0,240,255,.15);box-shadow:0 0 8px rgba(0,240,255,.35)}
+.adv-body button.danger{color:var(--red);border-color:rgba(255,42,109,.4);background:rgba(255,42,109,.05)}
+.adv-body button.danger:hover{background:rgba(255,42,109,.15);box-shadow:0 0 8px rgba(255,42,109,.4)}
+/* ---------- 载入文件弹窗 ---------- */
+.files-box{width:600px}
+.files-body{overflow-y:auto;max-height:62vh;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.files-hint{font-size:11px;color:var(--muted);border-bottom:1px solid rgba(0,240,255,.15);padding-bottom:8px;
+  margin-bottom:2px;word-break:break-all;line-height:1.7}
+#fileList{list-style:none;display:flex;flex-direction:column;gap:6px}
+#fileList li{display:flex;align-items:center;gap:10px;padding:9px 11px;cursor:pointer;
+  border:1px solid rgba(0,240,255,.18);font-size:12px}
+#fileList li:hover{border-color:var(--cyan);background:rgba(0,240,255,.08)}
+#fileList .fname{color:var(--cyan);letter-spacing:1px;word-break:break-all}
+#fileList .fsize{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap}
+#fileList .fempty{color:var(--muted);cursor:default;border:none;padding:14px 4px;line-height:1.8}
+#fileList .fempty:hover{background:none;border:none}
+#filesBrowse{font-family:var(--font);font-size:12px;letter-spacing:1px;cursor:pointer;padding:9px;
+  color:var(--cyan);background:rgba(0,240,255,.05);border:1px solid rgba(0,240,255,.3)}
+#filesBrowse:hover{background:rgba(0,240,255,.15);box-shadow:0 0 8px rgba(0,240,255,.35)}
+/* ---------- toast ---------- */
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:200;display:none;
+  background:rgba(5,10,18,.95);border:1px solid var(--yellow);color:var(--yellow);padding:10px 24px;
+  font-size:13px;letter-spacing:2px;box-shadow:0 0 14px rgba(252,238,10,.35)}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:rgba(0,240,255,.04)}
+::-webkit-scrollbar-thumb{background:rgba(0,240,255,.25)}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,240,255,.45)}
+@media (max-width:1100px){
+  .app{grid-template-columns:200px minmax(0,1fr) 290px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="glitch" data-text="义体维护终端">义体维护终端</div>
+    </div>
+    <div class="stats">
+      <span>身份 <b class="c-ok">yxz</b></span>
+      <span>已记录 <b class="c-cyn" id="statParts">0</b> 部位</span>
+      <span>不适 <b class="c-yel" id="statPain">0</b></span>
+      <span>需治疗 <b class="c-red" id="statTreat">0</b></span>
+      <span>需锻炼 <b class="c-grn" id="statTrain">0</b></span>
+    </div>
+  </header>
+
+  <aside class="panel">
+    <h2>部位列表</h2>
+    <div id="ovList"></div>
+    <div class="legend">
+      <span><i style="background:var(--yellow)"></i>不适</span>
+      <span><i style="background:var(--red)"></i>需治疗</span>
+      <span><i style="background:var(--green)"></i>需锻炼</span>
+      <span><i style="background:var(--ok)"></i>正常</span>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="view-toggle">
+      <button class="view-btn active" id="btnFront">正面<span class="badge" id="badgeFront"></span></button>
+      <button class="view-btn" id="btnBack">背面<span class="badge" id="badgeBack"></span></button>
+    </div>
+    <div id="snapBanner">
+      <span id="snapBannerText">正在回看快照</span>
+      <button id="btnBackNow">返回当前</button>
+    </div>
+    <div class="svg-wrap" id="stage">
+      <div class="scanline" id="scanline"></div>
+      <svg id="svgFront" class="show" viewBox="0 0 400 740" xmlns="http://www.w3.org/2000/svg">
+        <g id="gFront"></g>
+      </svg>
+      <svg id="svgBack" viewBox="0 0 400 740" xmlns="http://www.w3.org/2000/svg">
+        <g id="gBack"></g>
+      </svg>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <h2>部位详情</h2>
+    <div id="panelEmpty">点击部位查看详情</div>
+    <div id="panelBody">
+      <div class="p-title"><span class="cn" id="pName"></span><span class="p-days" id="pDays"></span></div>
+      <div class="p-updated" id="pUpdated"></div>
+      <label class="chk f-treat"><input type="radio" name="partStatus" id="ckTreat" value="需治疗"><span class="box"></span>需治疗</label>
+      <label class="chk f-discomfort"><input type="radio" name="partStatus" id="ckPain" value="不适"><span class="box"></span>不适</label>
+      <label class="chk f-train"><input type="radio" name="partStatus" id="ckTrain" value="需锻炼"><span class="box"></span>需锻炼</label>
+      <label class="chk f-ok"><input type="radio" name="partStatus" id="ckOk" value="正常"><span class="box"></span>正常</label>
+      <textarea id="pNote" placeholder="备注：症状、诱因、医生建议…"></textarea>
+      <button class="btn" id="btnClearPart">清空此部位记录</button>
+      <div class="p-history">
+        <h3>历史快照（本部位）</h3>
+        <ul id="pHistory"></ul>
+      </div>
+    </div>
+  </aside>
+
+  <footer>
+    <span class="hint" id="footHint">身份核对 yxz</span>
+    <button id="btnSaveFile">保存到文件</button>
+    <button id="btnSnap">回看快照</button>
+    <button id="btnAdv">高级设置</button>
+  </footer>
+</div>
+
+<div class="modal" id="modalAdv">
+  <div class="modal-box adv-box">
+    <div class="modal-head"><span>高级设置</span><button id="advClose">关闭</button></div>
+    <div class="adv-body">
+      <div class="adv-title">保存路径</div>
+      <div class="path-row"><span class="pk">项目根目录</span><input id="basePath" spellcheck="false"></div>
+      <ul class="path-list" id="pathList"></ul>
+      <div class="path-row"><span class="pk">已绑定</span><span class="bound" id="boundDir">未配置</span></div>
+      <div class="path-row"><span class="pk">读写权限</span><span class="bound" id="dirPerm">—</span></div>
+      <div class="adv-note" id="dirNote"></div>
+      <div class="adv-btns">
+        <button id="btnPickDir">选择 / 更换数据文件夹</button>
+        <button id="btnUnbindDir">解除绑定</button>
+      </div>
+      <div class="adv-title">数据文件</div>
+      <button id="btnImport">载入数据文件</button>
+      <input type="file" id="fileImport" accept=".json,application/json" hidden>
+      <button id="btnClear" class="danger">清空数据</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalFiles">
+  <div class="modal-box files-box">
+    <div class="modal-head"><span>载入数据文件</span><button id="filesClose">关闭</button></div>
+    <div class="files-body">
+      <div class="files-hint" id="filesPath"></div>
+      <ul id="fileList"></ul>
+      <button id="filesBrowse">从其他位置选择文件…</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalSnap">
+  <div class="modal-box">
+    <div class="modal-head"><span>全身快照回看</span><button id="snapClose">关闭</button></div>
+    <div class="modal-body">
+      <ul id="snapList"></ul>
+      <div id="snapDetail"><div class="sd-empty">选择左侧一条快照<br>查看当时全身状态</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ================= 部位定义（与《部位维护表.xlsx》对应） =================
+   views: F=正面 B=背面 FB=双面 ; side: L=左 R=右 mid=中线 */
+const PARTS=[
+ ['head','头','头部','F','mid'],['back_head','后脑','头部','B','mid'],
+ ['hair','头发','头部','FB','mid'],
+ ['left_eye','左眼','头部','F','L'],['right_eye','右眼','头部','F','R'],
+ ['nose','鼻','头部','F','mid'],['mouth','嘴','头部','F','mid'],
+ ['left_ear','左耳','头部','FB','L'],['right_ear','右耳','头部','FB','R'],
+ ['neck_front','颈前','颈部','F','mid'],['neck_back','后颈','颈部','B','mid'],
+ ['left_shoulder','左肩','躯干','FB','L'],['right_shoulder','右肩','躯干','FB','R'],
+ ['chest','胸','躯干','F','mid'],['abdomen','腹','躯干','F','mid'],
+ ['upper_back','上背','躯干','B','mid'],['lower_back','腰','躯干','B','mid'],
+ ['hips','髋部','躯干','F','mid'],['genitals','生殖器','躯干','F','mid'],
+ ['left_glute','左臀','躯干','B','L'],['right_glute','右臀','躯干','B','R'],
+ ['anus','肛门','躯干','B','mid'],
+ ['left_upper_arm','左大臂','上肢','FB','L'],['right_upper_arm','右大臂','上肢','FB','R'],
+ ['left_elbow','左肘','上肢','FB','L'],['right_elbow','右肘','上肢','FB','R'],
+ ['left_forearm','左小臂','上肢','FB','L'],['right_forearm','右小臂','上肢','FB','R'],
+ ['left_wrist','左腕','上肢','FB','L'],['right_wrist','右腕','上肢','FB','R'],
+ ['left_palm','左手掌','上肢','F','L'],['right_palm','右手掌','上肢','F','R'],
+ ['left_hand_back','左手背','上肢','B','L'],['right_hand_back','右手背','上肢','B','R'],
+ ['left_fingers','左手指','上肢','FB','L'],['right_fingers','右手指','上肢','FB','R'],
+ ['left_thigh','左大腿','下肢','FB','L'],['right_thigh','右大腿','下肢','FB','R'],
+ ['left_knee','左膝','下肢','FB','L'],['right_knee','右膝','下肢','FB','R'],
+ ['left_calf','左小腿','下肢','FB','L'],['right_calf','右小腿','下肢','FB','R'],
+ ['left_ankle','左脚踝','下肢','FB','L'],['right_ankle','右脚踝','下肢','FB','R'],
+ ['left_instep','左脚背','下肢','FB','L'],['right_instep','右脚背','下肢','FB','R'],
+ ['left_sole','左脚底','下肢','FB','L'],['right_sole','右脚底','下肢','FB','R'],
+ ['left_toes','左脚趾','下肢','FB','L'],['right_toes','右脚趾','下肢','FB','R'],
+].map(function(p){return {id:p[0],name:p[1],region:p[2],views:p[3],side:p[4]};});
+const PMAP={}; PARTS.forEach(function(p){PMAP[p.id]=p;});
+const REGION_ORDER=['头部','颈部','躯干','上肢','下肢'];
+const FLAGS=['不适','需治疗','需锻炼','正常'];
+const OWNER='yxz';
+const SNAP_MERGE_MS=10*60*1000;  /* 10 分钟内多次保存合并为一条全身快照 */
+
+function flagClass(f){return f==='不适'?'discomfort':f==='需治疗'?'treat':f==='需锻炼'?'train':'ok';}
+
+/* ================= 人体绘制（左半身模板坐标，中线=200） ================= */
+const TPL={
+ shoulder:'<circle class="sf" cx="158" cy="170" r="17"/>',
+ /* 四肢：半透明填充多边形（端点用圆弧收口），与躯干其他部位同一材质 */
+ upperArm:'<path class="sf" d="M160.5 189.1 L138.5 263.1 A11 11 0 0 1 117.5 256.9 L139.5 182.9 A11 11 0 0 1 160.5 189.1 Z"/>',
+ elbow:'<circle class="sf" cx="127" cy="264" r="11.5"/>',
+ forearm:'<path class="sf" d="M132.9 273.4 L120.9 351.4 A9 9 0 0 1 103.1 348.6 L115.1 270.6 A9 9 0 0 1 132.9 273.4 Z"/>',
+ wrist:'<circle class="sf" cx="109" cy="368" r="9"/>',
+ palm:'<ellipse class="sf" cx="107" cy="391" rx="10" ry="13"/>',
+ fingers:'<path class="sl" d="M99 398 L97 413" stroke-width="4"/><path class="sl" d="M104 402 L103 417" stroke-width="4"/><path class="sl" d="M109 402 L109 417" stroke-width="4"/><path class="sl" d="M114 399 L116 413" stroke-width="4"/>',
+ ear:'<ellipse class="sf" cx="166" cy="80" rx="7" ry="11"/>',
+ eye:'<ellipse class="sf" cx="186" cy="71" rx="7.5" ry="4.5"/>',
+ hairF:'<path class="sf" d="M161 88 C158 40 176 20 200 20 C224 20 242 40 239 88 C234 64 224 52 200 50 C176 52 166 64 161 88 Z"/>',
+ hairB:'<path class="sf" d="M158 100 C155 40 176 18 200 18 C224 18 245 40 242 100 Q221 91 200 100 Q179 91 158 100 Z"/>',
+ thigh:'<path class="sf" d="M197.5 352.9 L188.5 492.9 A13.5 13.5 0 0 1 161.5 491.1 L170.5 351.1 A13.5 13.5 0 0 1 197.5 352.9 Z"/>',
+ knee:'<circle class="sf" cx="174" cy="502" r="13"/>',
+ calf:'<path class="sf" d="M182.5 512.3 L178.5 648.3 A9.5 9.5 0 0 1 159.5 647.7 L163.5 511.7 A9.5 9.5 0 0 1 182.5 512.3 Z"/>',
+ ankle:'<circle class="sf" cx="170" cy="667" r="9"/>',
+ /* 脚：三层结构，脚尖朝外 → 脚背=上层主体、脚底=紧贴脚背下方的一层、脚趾=脚背前端；
+   整体绕踝关节略微下压，读起来更像自然落脚 */
+ instep:'<g transform="rotate(-10 170 670)"><path class="sf" d="M131 681 C146 679 162 674 171 669 Q176 667 176 674 L176 684 Q176 690 170 690 L135 691 Q131 691 131 687 Z"/></g>',
+ sole:'<g transform="rotate(-10 170 670)"><path class="sf" d="M135 690 L170 689 Q176 689 176 695 Q176 701 170 701 L140 701 Q133 701 133 695 Q133 690 135 690 Z"/></g>',
+ toes:'<g transform="rotate(-10 170 670)"><path class="sf" d="M131 681 L119 682 Q110 684 110 690 Q109 697 114 700 Q118 702 123 700 L131 698 Z"/>'
+   +'<path class="sl" d="M119 687 L120 699" stroke-width="1"/><path class="sl" d="M112 690 L113 699" stroke-width="1"/></g>',
+ glute:'<path class="sf" d="M174 306 L199 303 L199 354 L178 354 Z"/>',
+};
+const MID={
+ head:'<ellipse class="sf" cx="200" cy="78" rx="35" ry="43"/>',
+ neck:'<rect class="sf" x="188" y="116" width="24" height="40" rx="7"/>',
+ nose:'<path class="sf" d="M196 80 L204 80 L200 94 Z"/>',
+ mouth:'<rect class="sf" x="189" y="100" width="22" height="5" rx="2.5"/>',
+ chest:'<path class="sf" d="M162 152 L238 152 L234 240 L166 240 Z"/>',
+ abdomen:'<path class="sf" d="M166 240 L234 240 L226 308 L174 308 Z"/>',
+ hips:'<path class="sf" d="M174 308 L226 308 L222 354 L178 354 Z"/>',
+ genitals:'<rect class="sf" x="191" y="318" width="18" height="24" rx="3"/>',
+ anus:'<rect class="sf" x="194" y="340" width="12" height="20" rx="2"/>',
+};
+/* 正面图：镜子关系 — 人的左侧在画面右侧；背面图：人的左侧在画面左侧 */
+function sideT(view,side){
+  const mirror=(view==='front')?(side==='L'):(side==='R');
+  return mirror?' transform="translate(400 0) scale(-1 1)"':'';
+}
+/* 关节（肩/肘/腕/膝）绘制在最上层：SVG 后绘制者覆盖先绘制者 */
+function seqFront(){return [
+ ['left_thigh','thigh'],['right_thigh','thigh'],['left_calf','calf'],['right_calf','calf'],
+ ['left_sole','sole'],['right_sole','sole'],
+ ['left_instep','instep'],['right_instep','instep'],
+ ['left_toes','toes'],['right_toes','toes'],
+ ['chest',null,'chest'],['abdomen',null,'abdomen'],['hips',null,'hips'],['genitals',null,'genitals'],
+ ['left_upper_arm','upperArm'],['right_upper_arm','upperArm'],
+ ['left_forearm','forearm'],['right_forearm','forearm'],
+ ['left_palm','palm'],['right_palm','palm'],
+ ['left_fingers','fingers'],['right_fingers','fingers'],
+ ['neck_front',null,'neck'],['head',null,'head'],['hair','hairF'],
+ ['left_eye','eye'],['right_eye','eye'],
+ ['nose',null,'nose'],['mouth',null,'mouth'],
+ ['left_ear','ear'],['right_ear','ear'],
+ ['left_shoulder','shoulder'],['right_shoulder','shoulder'],
+ ['left_elbow','elbow'],['right_elbow','elbow'],
+ ['left_wrist','wrist'],['right_wrist','wrist'],
+ ['left_knee','knee'],['right_knee','knee'],
+ ['left_ankle','ankle'],['right_ankle','ankle']];}
+function seqBack(){return [
+ ['left_thigh','thigh'],['right_thigh','thigh'],['left_calf','calf'],['right_calf','calf'],
+ ['left_sole','sole'],['right_sole','sole'],
+ ['left_instep','instep'],['right_instep','instep'],
+ ['left_toes','toes'],['right_toes','toes'],
+ ['upper_back',null,'chest'],['lower_back',null,'abdomen'],
+ ['left_glute','glute'],['right_glute','glute'],['anus',null,'anus'],
+ ['left_upper_arm','upperArm'],['right_upper_arm','upperArm'],
+ ['left_forearm','forearm'],['right_forearm','forearm'],
+ ['left_hand_back','palm'],['right_hand_back','palm'],
+ ['left_fingers','fingers'],['right_fingers','fingers'],
+ ['neck_back',null,'neck'],['back_head',null,'head'],['hair','hairB'],
+ ['left_ear','ear'],['right_ear','ear'],
+ ['left_shoulder','shoulder'],['right_shoulder','shoulder'],
+ ['left_elbow','elbow'],['right_elbow','elbow'],
+ ['left_wrist','wrist'],['right_wrist','wrist'],
+ ['left_knee','knee'],['right_knee','knee'],
+ ['left_ankle','ankle'],['right_ankle','ankle']];}
+function buildView(view,seq){
+  let s='';
+  seq.forEach(function(e){
+    const p=PMAP[e[0]];
+    const inner=e[1]?TPL[e[1]]:MID[e[2]];
+    s+='<g class="part" data-id="'+p.id+'"'+sideT(view,p.side)+'>'+inner+'</g>';
+  });
+  return s;
+}
+document.getElementById('gFront').innerHTML=buildView('front',seqFront());
+document.getElementById('gBack').innerHTML=buildView('back',seqBack());
+
+/* ================= 数据层 ================= */
+const STORE_KEY='bodyOS_records_v1';
+function newData(){return {version:1,owner:OWNER,updatedAt:null,parts:{},snapshots:[],dirty:false};}
+function load(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY);
+    if(raw){
+      const o=JSON.parse(raw);
+      if(o&&typeof o.parts==='object'){
+        if(!o.snapshots||!Array.isArray(o.snapshots))o.snapshots=[];
+        if(!o.owner)o.owner=OWNER;
+        /* 兼容旧数据：异常部位补 since（最早一次异常的时间） */
+        Object.keys(o.parts).forEach(function(id){
+          const r=o.parts[id];
+          if(!r||!r.flags||!r.flags.length)return;
+          if(r.flags[0]==='正常'){r.since=null;return;}
+          if(!r.since){
+            let t=r.updatedAt||null;
+            (r.history||[]).forEach(function(h){
+              const hf=(h.flags||[])[0];
+              if(hf&&hf!=='正常'&&(!t||new Date(h.time)<new Date(t)))t=h.time;
+            });
+            r.since=t||new Date().toISOString();
+          }
+        });
+        return o;
+      }
+    }
+  }catch(e){}
+  return newData();
+}
+let data=load();
+let ownerWarning='';
+if(data.owner!==OWNER){ownerWarning='⚠ 信息错误：本地数据属于「'+data.owner+'」，与当前身份「'+OWNER+'」不符';}
+function persist(){
+  data.updatedAt=new Date().toISOString();
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(data));}
+  catch(e){toast('⚠ 本地存储失败：'+e.message);}
+}
+function rec(id){return data.parts[id]||null;}
+/* 异常持续天数：从首次被标记异常那天起算（当天=0 天），恢复正常后清零；-1 表示当前无异常 */
+const DAY_MS=86400000;
+function abnormalDays(id){
+  const r=rec(id);
+  if(!r||!r.since)return -1;
+  const f=r.flags||[];
+  if(!f.length||f[0]==='正常')return -1;
+  const n=Math.floor((Date.now()-new Date(r.since).getTime())/DAY_MS);
+  return n>0?n:0;
+}
+/* 当前真实数据的状态（编辑面板用） */
+function curFlags(id){const r=rec(id);return (r&&r.flags)||[];}
+/* 显示用状态：回看快照时显示快照状态 */
+function flagsOf(id){
+  if(viewSnapshot){
+    const s=viewSnapshot.parts[id];
+    return (s&&s.flags)||[];
+  }
+  return curFlags(id);
+}
+function statusClass(id){
+  const f=flagsOf(id);
+  if(!f.length)return '';
+  if(f.indexOf('不适')>=0)return 'st-discomfort';
+  if(f.indexOf('需治疗')>=0)return 'st-treat';
+  if(f.indexOf('需锻炼')>=0)return 'st-train';
+  return '';
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function fmtTime(iso){
+  const d=new Date(iso);if(isNaN(d))return String(iso);
+  function p(n){return n<10?'0'+n:''+n;}
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function chipsHtml(flags){
+  return flags.map(function(f){return '<span class="chip '+flagClass(f)+'">'+esc(f)+'</span>';}).join('');
+}
+
+/* ================= 状态 ================= */
+let currentView='front';
+let selectedId=null;
+let viewSnapshot=null;      /* 全身快照回看模式：null=当前 */
+let modalSnapIndex=-1;      /* 模态框中选中的快照下标 */
+
+/* ================= 渲染 ================= */
+function renderBody(){
+  ['front','back'].forEach(function(view){
+    const g=document.getElementById(view==='front'?'gFront':'gBack');
+    g.querySelectorAll('.part').forEach(function(el){
+      const id=el.getAttribute('data-id');
+      el.setAttribute('class','part '+statusClass(id)+(id===selectedId&&!viewSnapshot?' selected':''));
+    });
+  });
+}
+function renderBadges(){
+  ['front','back'].forEach(function(view){
+    let n=0;
+    PARTS.forEach(function(p){
+      const f=flagsOf(p.id);
+      if(inView(p,view)&&f.length&&f.indexOf('正常')<0)n++;
+    });
+    const b=document.getElementById(view==='front'?'badgeFront':'badgeBack');
+    b.textContent=n;b.className='badge'+(n?' show':'');
+  });
+}
+function renderStats(){
+  let parts=0,pain=0,treat=0,train=0;
+  PARTS.forEach(function(p){
+    const f=flagsOf(p.id);
+    if(f.length){parts++;
+      if(f.indexOf('不适')>=0)pain++;
+      if(f.indexOf('需治疗')>=0)treat++;
+      if(f.indexOf('需锻炼')>=0)train++;}
+  });
+  document.getElementById('statParts').textContent=parts;
+  document.getElementById('statPain').textContent=pain;
+  document.getElementById('statTreat').textContent=treat;
+  document.getElementById('statTrain').textContent=train;
+}
+function renderPartList(){
+  const box=document.getElementById('ovList');
+  let html='';
+  REGION_ORDER.forEach(function(reg){
+    html+='<div class="grp">'+esc(reg)+'</div><div class="grp-box">';
+    PARTS.filter(function(p){return p.region===reg;}).forEach(function(p){
+      const f=flagsOf(p.id);
+      const d=(!viewSnapshot&&f.length&&f[0]!=='正常')?abnormalDays(p.id):-1;
+      const dHtml=d>=0?'<span class="pl-days d-'+flagClass(f[0])+'">异常 '+d+' 天</span>':'';
+      html+='<div class="pl-item" data-id="'+p.id+'"'+(p.id===selectedId&&!viewSnapshot?' data-active="1"':'')+
+        '><span class="pn'+(f.length?'':' dim')+'">'+esc(p.name)+'</span>'+chipsHtml(f)+dHtml+'</div>';
+    });
+    html+='</div>';
+  });
+  box.innerHTML=html;
+  box.querySelectorAll('.pl-item').forEach(function(it){
+    if(it.getAttribute('data-active'))it.classList.add('active');
+    it.addEventListener('click',function(){selectPart(it.getAttribute('data-id'));});
+  });
+}
+function renderPanel(){
+  const empty=document.getElementById('panelEmpty');
+  const body=document.getElementById('panelBody');
+  if(!selectedId){empty.style.display='flex';body.classList.remove('show');return;}
+  empty.style.display='none';body.classList.add('show');
+  const p=PMAP[selectedId],r=rec(selectedId);
+  document.getElementById('pName').textContent=p.name;
+  document.getElementById('pUpdated').textContent=r?('上次更新：'+fmtTime(r.updatedAt)+' · 历史快照 '+((r.history||[]).length)+' 条'):'尚无记录';
+  /* 单选：按记录勾选；无记录的部位默认勾选「正常」 */
+  const cf=curFlags(p.id);
+  const active=cf.length?cf[0]:'正常';
+  document.getElementById('ckPain').checked=active==='不适';
+  document.getElementById('ckTreat').checked=active==='需治疗';
+  document.getElementById('ckTrain').checked=active==='需锻炼';
+  document.getElementById('ckOk').checked=(active!=='不适'&&active!=='需治疗'&&active!=='需锻炼');
+  document.getElementById('pNote').value=r?r.note||'':'';
+  /* 异常天数：显示在部位名称右侧，颜色跟随当前状态 */
+  const dEl=document.getElementById('pDays');
+  const days=abnormalDays(p.id);
+  if(days>=0&&active!=='正常'){
+    dEl.textContent='异常 '+days+' 天';
+    dEl.className='p-days d-'+flagClass(active);
+  }else{
+    dEl.textContent='';dEl.className='p-days';
+  }
+  const ul=document.getElementById('pHistory');
+  const hist=r?(r.history||[]):[];
+  if(!hist.length){ul.innerHTML='<li class="h-empty" style="border:none;padding:0">暂无快照</li>';return;}
+  ul.innerHTML=hist.slice().reverse().map(function(h,i){
+    const idx=hist.length-1-i;
+    return '<li><div class="h-time">'+esc(fmtTime(h.time))+'</div>'+
+      (h.note?'<div class="h-note">'+esc(h.note)+'</div>':'')+
+      '<div class="h-flags">'+(chipsHtml(h.flags||[])||'<span style="color:#5d7d8a">无标记</span>')+'</div>'+
+      '<div class="h-ops"><button class="h-btn h-restore" data-i="'+idx+'">恢复</button>'+
+      '<button class="h-btn h-del" data-i="'+idx+'">删除</button></div></li>';
+  }).join('');
+  ul.querySelectorAll('.h-restore').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      if(viewSnapshot){toast('回看模式中，请先返回当前');return;}
+      const h=hist[parseInt(btn.getAttribute('data-i'),10)];
+      const hf=(h.flags||[])[0]||'正常';
+      document.getElementById('ckPain').checked=hf==='不适';
+      document.getElementById('ckTreat').checked=hf==='需治疗';
+      document.getElementById('ckTrain').checked=hf==='需锻炼';
+      document.getElementById('ckOk').checked=(hf!=='不适'&&hf!=='需治疗'&&hf!=='需锻炼');
+      document.getElementById('pNote').value=h.note||'';
+      syncChkClasses();
+      savePart('✓ 已恢复该快照并自动保存');
+    });
+  });
+  ul.querySelectorAll('.h-del').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      if(viewSnapshot){toast('回看模式中，请先返回当前');return;}
+      const idx=parseInt(btn.getAttribute('data-i'),10);
+      const h=hist[idx];
+      if(!h)return;
+      if(!confirm('删除 '+fmtTime(h.time)+' 这条快照？删除后不可恢复。'))return;
+      hist.splice(idx,1);
+      data.parts[selectedId].history=hist;
+      data.dirty=true;
+      persist();renderAll();
+      toast('已删除该条快照（剩 '+hist.length+' 条）');
+    });
+  });
+}
+function renderBanner(){
+  const b=document.getElementById('snapBanner');
+  if(viewSnapshot){
+    document.getElementById('snapBannerText').textContent='正在回看快照：'+fmtTime(viewSnapshot.time)+'（只读）';
+    b.className='show';
+  }else{
+    b.className='';
+  }
+}
+function renderAll(){renderBody();renderBadges();renderStats();renderPartList();renderPanel();renderBanner();updateFootHint();}
+/* 底栏：身份 + 未存盘标记 */
+function updateFootHint(){
+  const el=document.getElementById('footHint');
+  if(!el)return;
+  el.textContent='身份核对 yxz'+(data.dirty?' · ● 未存盘':'');
+  el.className='hint'+(data.dirty?' dirty':'');
+}
+
+/* ================= 全身快照 ================= */
+function collectParts(){
+  const parts={};
+  PARTS.forEach(function(p){
+    const r=data.parts[p.id];
+    if(r&&((r.flags&&r.flags.length)||r.note)){
+      parts[p.id]={flags:(r.flags||[]).slice(),note:r.note||'',since:r.since||null};
+    }
+  });
+  return parts;
+}
+function updateSnapshot(){
+  const now=new Date().toISOString();
+  const parts=collectParts();
+  const last=data.snapshots[data.snapshots.length-1];
+  if(last&&(new Date(now)-new Date(last.time))<SNAP_MERGE_MS){
+    last.time=now;last.parts=parts;
+  }else{
+    data.snapshots.push({time:now,parts:parts});
+  }
+  pruneSnapshots();
+}
+/* 快照裁剪：最近 300 条全留；更早的按周留 1 条；超过 1 年的按月留 1 条 */
+const SNAP_KEEP=300;
+function weekKey(iso){
+  const d=new Date(iso);
+  const start=new Date(d.getFullYear(),0,1);
+  const wk=Math.floor((((d-start)/DAY_MS)+start.getDay())/7);
+  return d.getFullYear()+'-W'+wk;
+}
+function pruneSnapshots(){
+  if(data.snapshots.length<=SNAP_KEEP)return;
+  const sorted=data.snapshots.slice().sort(function(a,b){return new Date(a.time)-new Date(b.time);});
+  const recent=sorted.slice(-SNAP_KEEP);
+  const older=sorted.slice(0,-SNAP_KEEP);
+  const buckets={};
+  older.forEach(function(s){
+    const days=(Date.now()-new Date(s.time).getTime())/DAY_MS;
+    const key=days>365?(new Date(s.time).getFullYear()+'-M'+new Date(s.time).getMonth()):weekKey(s.time);
+    buckets[key]=s;   /* 同一周期保留最后一条 */
+  });
+  const kept=Object.keys(buckets).map(function(k){return buckets[k];});
+  data.snapshots=kept.concat(recent).sort(function(a,b){return new Date(a.time)-new Date(b.time);});
+}
+/* 完整数据序列化 */
+function serialize(){return JSON.stringify(Object.assign({},data,{dirty:false}),null,2);}
+/* 下载完整数据文件（不支持文件夹写入时的降级方案） */
+function downloadJson(){
+  const blob=new Blob([serialize()],{type:'application/json'});
+  const a=document.createElement('a');
+  const d=new Date();
+  function p(n){return n<10?'0'+n:''+n;}
+  a.href=URL.createObjectURL(blob);
+  a.download='body_records_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.json';
+  a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+
+/* ================= 数据文件夹（读写同一目录） ================= */
+const FS_OK=(typeof window!=='undefined')&&(typeof window.showDirectoryPicker==='function');
+const DATA_FILE='body_records.json';
+let dirHandle=null;
+let dirPerm='unknown';    /* granted / prompt / denied / error / none / unknown */
+let dirPicking=false;     /* 选择窗口正在打开：防止连点触发 InvalidStateError */
+let dirLastErr='';        /* 上一次选择失败的原因（显示在高级设置里） */
+let dirProbe='';          /* 绑定后的写入自检结果 */
+function idbOpen(){
+  return new Promise(function(res,rej){
+    if(typeof indexedDB==='undefined'){rej(new Error('no indexeddb'));return;}
+    const req=indexedDB.open('bodyOS_fs',1);
+    req.onupgradeneeded=function(){req.result.createObjectStore('kv');};
+    req.onsuccess=function(){res(req.result);};
+    req.onerror=function(){rej(req.error);};
+  });
+}
+/* IndexedDB 可能被策略禁用、或在 open 阶段被其他标签页阻塞（此时 Promise 永不 resolve），
+   一律加超时兜底，避免「绑定了但界面一直没反应」 */
+async function idbSet(k,v){
+  try{
+    return await Promise.race([idbPut(k,v),new Promise(function(res){setTimeout(function(){res(false);},1500);})]);
+  }catch(e){return false;}
+}
+async function idbPut(k,v){
+  try{
+    const db=await idbOpen();
+    await new Promise(function(res,rej){
+      const tx=db.transaction('kv','readwrite');
+      tx.objectStore('kv').put(v,k);
+      tx.oncomplete=function(){res(true);};tx.onerror=function(){rej(tx.error);};
+    });
+    return true;
+  }catch(e){return false;}   /* IndexedDB 不可用（隐私模式/被策略禁用）：句柄无法跨会话保存 */
+}
+async function idbGet(k){
+  try{
+    return await Promise.race([idbGetRaw(k),new Promise(function(res){setTimeout(function(){res(null);},1200);})]);
+  }catch(e){return null;}
+}
+async function idbGetRaw(k){
+  const db=await idbOpen();
+  return await new Promise(function(res,rej){
+    const tx=db.transaction('kv','readonly');
+    const rq=tx.objectStore('kv').get(k);
+    rq.onsuccess=function(){res(rq.result||null);};rq.onerror=function(){rej(rq.error);};
+  });
+}
+/* 选择文件夹必须由「真实点击」触发（浏览器要求瞬时用户手势）。
+   这里把各种失败原因分开返回，避免再出现「点了没反应」：
+   cancel=用户取消 / unsupported=浏览器不支持 / busy=已有选择窗口
+   denied=未获读写授权 / error=浏览器抛错（SecurityError 等） */
+async function pickDir(){
+  if(dirPicking)return {ok:false,code:'busy'};
+  if(!FS_OK)return {ok:false,code:'unsupported'};
+  dirPicking=true;
+  try{
+    const d=await window.showDirectoryPicker({id:'bodyos_data',mode:'readwrite'});
+    let st='granted';
+    try{if(typeof d.queryPermission==='function')st=await d.queryPermission({mode:'readwrite'});}catch(e){}
+    if(st!=='granted')return {ok:false,code:'denied',name:'NotAllowedError',msg:'读写权限未授予（'+st+'）'};
+    dirHandle=d;dirPerm='granted';dirLastErr='';
+    const persisted=await idbSet('dataDir',d);
+    try{localStorage.setItem('bodyOS_dirName',d.name);}catch(e){}
+    dirProbe=await probeWritable(d);
+    return {ok:true,dir:d,persisted:persisted};
+  }catch(e){
+    const name=(e&&e.name)||'Error';
+    if(name==='AbortError')return {ok:false,code:'cancel'};
+    if(name==='InvalidStateError')return {ok:false,code:'busy',name:name,msg:e.message};
+    dirLastErr=name+(e&&e.message?'：'+e.message:'');
+    return {ok:false,code:'error',name:name,msg:(e&&e.message)||String(e)};
+  }finally{dirPicking=false;}
+}
+/* 写入自检：在目标目录建一个临时文件再删掉，提前发现「选得到但写不了」的目录 */
+async function probeWritable(d){
+  const probeName='.__write_test__';
+  try{
+    const fh=await d.getFileHandle(probeName,{create:true});
+    const w=await fh.createWritable();
+    await w.write('ok');await w.close();
+    if(typeof d.removeEntry==='function')await d.removeEntry(probeName);
+    return '';
+  }catch(e){
+    return (e&&e.name==='NotAllowedError')?'该文件夹不可写入：请换一个非系统保护/非网络盘的目录':'写入自检失败（'+(e&&e.name||'Error')+'）：保存可能失败';
+  }
+}
+function dirErrText(name,msg){
+  const map={
+    SecurityError:'浏览器拦截了文件夹选择（页面被判定为不安全上下文、或在被嵌入的框架/受限策略里打开）',
+    NotAllowedError:'权限被拒绝，或被浏览器隐私/企业策略拦截',
+    InvalidStateError:'已经有一个文件选择窗口处于打开状态',
+    NotSupportedError:'当前浏览器版本不支持该接口',
+    TypeError:'调用方式不被支持（浏览器版本过旧）',
+    OperationError:'系统层面操作失败（网络盘、云端占位文件夹、移动硬盘掉线时常见）',
+    UnknownError:'浏览器返回未知错误'
+  };
+  return (map[name]||('浏览器返回 '+name))+(msg?'（'+msg+'）':'');
+}
+/* 只在已绑定时返回目录，不自动弹选择框（目录在「高级设置 → 保存路径」里配置） */
+async function ensureBoundDir(interactive){
+  if(!dirHandle)dirHandle=await idbGet('dataDir');
+  if(!dirHandle){dirPerm='none';return null;}
+  try{
+    let st=await dirHandle.queryPermission({mode:'readwrite'});
+    if(st!=='granted'&&interactive)st=await dirHandle.requestPermission({mode:'readwrite'});
+    dirPerm=(st==='granted')?'granted':(st==='prompt'?'prompt':'denied');
+    if(st!=='granted')return null;
+  }catch(e){dirPerm='error';return null;}
+  return dirHandle;
+}
+async function writeDataFile(d){
+  d=d||await ensureBoundDir(true);
+  if(!d)return null;
+  const fh=await d.getFileHandle(DATA_FILE,{create:true});
+  const w=await fh.createWritable();
+  await w.write(serialize());
+  await w.close();
+  return d.name+'/'+DATA_FILE;
+}
+/* ---------- 保存路径配置（绝对路径仅作参考，浏览器不会暴露真实绝对路径） ---------- */
+const DEFAULT_BASE='F:\\AIproject\\义体记录';
+function basePath(){
+  try{return localStorage.getItem('bodyOS_basePath')||DEFAULT_BASE;}catch(e){return DEFAULT_BASE;}
+}
+function joinPath(base,name){
+  const b=String(base||'').replace(/[\\/]+$/,'');
+  return b+(b?'\\':'')+name;
+}
+function rememberedDirName(){try{return localStorage.getItem('bodyOS_dirName')||'';}catch(e){return '';}}
+function renderPathConfig(){
+  const bp=basePath();
+  const inp=document.getElementById('basePath');
+  if(inp&&inp.value!==bp)inp.value=bp;
+  const dataDir=joinPath(bp,'数据备份');
+  const rows=[
+    ['数据文件夹',dataDir+'\\'],
+    ['数据文件',joinPath(dataDir,DATA_FILE)],
+    ['文档',joinPath(bp,'文档')+'\\'],
+    ['资源',joinPath(bp,'资源')+'\\']
+  ];
+  const ul=document.getElementById('pathList');
+  if(ul)ul.innerHTML=rows.map(function(r){
+    return '<li><span class="pn">'+r[0]+'</span><span class="pv">'+esc(r[1])+'</span></li>';
+  }).join('');
+  const bd=document.getElementById('boundDir');
+  if(bd){
+    if(dirHandle)bd.textContent=dirHandle.name+'（浏览器仅提供文件夹名）';
+    else{
+      const n=rememberedDirName();
+      bd.textContent='未配置'+(n?'（上次绑定 '+n+'，需重新授权）':'');
+    }
+  }
+  const pm=document.getElementById('dirPerm');
+  if(pm){
+    const map={granted:'读写已授权',prompt:'需要重新授权',denied:'授权被拒绝',error:'权限查询失败',none:'未绑定',unknown:'未检测'};
+    pm.textContent=map[dirPerm]||dirPerm;
+    pm.style.color=(dirPerm==='granted')?'var(--cyan)':((dirPerm==='denied'||dirPerm==='error')?'var(--red)':'');
+  }
+  const note=document.getElementById('dirNote');
+  if(note){
+    if(dirLastErr){note.className='adv-note err';note.textContent='上次选择失败：'+dirLastErr;}
+    else if(dirProbe){note.className='adv-note warn';note.textContent=dirProbe;}
+    else{
+      note.className='adv-note';
+      note.textContent=FS_OK
+        ?'保存到文件会覆盖写入已绑定文件夹里的 '+DATA_FILE+'。若按钮点不动：先用鼠标点一下页面空白处再点，不要连续点击（会与上一次选择窗口冲突）。'
+        :'当前浏览器不支持文件夹读写，保存时会降级为下载文件；请用 Chrome / Edge 打开本页。';
+    }
+  }
+}
+/* 保存到文件：生成全局存档快照 + 写入已绑定的数据文件夹 */
+document.getElementById('btnSaveFile').addEventListener('click',async function(){
+  if(viewSnapshot){toast('回看模式中，请先返回当前');return;}
+  function takeSnapshot(){
+    const now=new Date().toISOString();
+    const parts=collectParts();
+    data.snapshots.push({time:now,parts:parts});
+    pruneSnapshots();
+    return parts;
+  }
+  if(!FS_OK){
+    const parts=takeSnapshot();
+    data.dirty=false;persist();renderAll();downloadJson();
+    toast('✓ 已生成数据文件（当前浏览器不支持写入文件夹，改为下载）');
+    return;
+  }
+  const hadHandle=!!dirHandle;
+  const d=await ensureBoundDir(true);
+  if(!d){
+    document.getElementById('modalAdv').className='modal show';
+    renderPathConfig();
+    if(hadHandle||dirHandle){
+      toast(dirPerm==='denied'?'⚠ 数据文件夹授权被拒绝，请点「选择 / 更换数据文件夹」重新授权'
+        :'⚠ 数据文件夹需要重新授权，请点「选择 / 更换数据文件夹」');
+    }else{
+      toast('⚠ 请先在「高级设置 → 保存路径」中绑定数据文件夹');
+    }
+    return;
+  }
+  const parts=takeSnapshot();
+  try{
+    await writeDataFile(d);
+    data.dirty=false;persist();renderAll();
+    dirProbe='';renderPathConfig();
+    toast('✓ 已保存到 '+d.name+'/'+DATA_FILE+'（'+Object.keys(parts).length+' 个部位）');
+  }catch(e){
+    data.dirty=true;persist();renderAll();
+    dirLastErr=(e&&e.name?e.name+'：':'')+(e&&e.message||'');
+    renderPathConfig();
+    toast('⚠ 写入失败：'+dirErrText(e&&e.name,e&&e.message));
+    if(confirm('写入数据文件夹失败（'+(e&&e.name||'错误')+'）。\n是否改为下载一份数据文件作为临时备份？'))downloadJson();
+  }
+});
+document.getElementById('basePath').addEventListener('change',function(){
+  const v=this.value.trim()||DEFAULT_BASE;
+  try{localStorage.setItem('bodyOS_basePath',v);}catch(e){}
+  renderPathConfig();
+});
+document.getElementById('btnPickDir').addEventListener('click',async function(){
+  const r=await pickDir();
+  renderPathConfig();
+  if(r.ok){
+    if(r.persisted===false)toast('✓ 已绑定 '+r.dir.name+'（本浏览器无法记住目录，重开页面需重新选择）');
+    else toast('✓ 已绑定数据文件夹：'+r.dir.name);
+    return;
+  }
+  if(r.code==='cancel'){toast('已取消选择');return;}
+  if(r.code==='busy'){toast('⚠ 选择窗口已打开，请先完成上一次选择');return;}
+  if(r.code==='unsupported'){toast('⚠ 当前浏览器不支持选择文件夹，请用 Chrome / Edge 打开本页');return;}
+  if(r.code==='denied'){toast('⚠ 未获得读写授权：请在弹窗里选中文件夹并点「允许 / 保存修改」后重试');return;}
+  toast('⚠ 文件夹选择器未能打开：'+dirErrText(r.name,r.msg));
+});
+document.getElementById('btnUnbindDir').addEventListener('click',async function(){
+  dirHandle=null;dirPerm='none';dirLastErr='';dirProbe='';
+  await idbSet('dataDir',null);
+  try{localStorage.removeItem('bodyOS_dirName');}catch(e){}
+  renderPathConfig();
+  toast('已解除绑定');
+});
+function openSnapModal(){
+  const ul=document.getElementById('snapList');
+  if(!data.snapshots.length){
+    ul.innerHTML='<li class="sl-empty">暂无全身快照<br>保存部位记录时会自动生成</li>';
+    document.getElementById('snapDetail').innerHTML='<div class="sd-empty">暂无快照数据</div>';
+  }else{
+    ul.innerHTML=data.snapshots.slice().reverse().map(function(s,i){
+      const idx=data.snapshots.length-1-i;
+      const n=Object.keys(s.parts||{}).length;
+      return '<li data-i="'+idx+'"'+(idx===modalSnapIndex?' class="active"':'')+
+        '><div class="sl-time">'+esc(fmtTime(s.time))+'</div><div class="sl-n">'+n+' 个部位有记录</div></li>';
+    }).join('');
+    ul.querySelectorAll('li[data-i]').forEach(function(li){
+      li.addEventListener('click',function(){
+        modalSnapIndex=parseInt(li.getAttribute('data-i'),10);
+        renderSnapDetail();
+        openSnapModal.rerender=true;
+        ul.querySelectorAll('li').forEach(function(x){x.className='';});
+        li.className='active';
+      });
+    });
+    if(modalSnapIndex<0||modalSnapIndex>=data.snapshots.length){modalSnapIndex=data.snapshots.length-1;}
+    renderSnapDetail();
+  }
+  document.getElementById('modalSnap').className='modal show';
+}
+function renderSnapDetail(){
+  const box=document.getElementById('snapDetail');
+  if(modalSnapIndex<0||!data.snapshots[modalSnapIndex]){
+    box.innerHTML='<div class="sd-empty">选择左侧一条快照<br>查看当时全身状态</div>';return;
+  }
+  const s=data.snapshots[modalSnapIndex];
+  const ids=Object.keys(s.parts||{});
+  let listHtml='';
+  if(ids.length){
+    listHtml='<ul>'+ids.map(function(id){
+      const p=PMAP[id];if(!p)return '';
+      const st=s.parts[id];
+      return '<li><span class="sd-name">'+esc(p.name)+'</span>'+
+        '<div class="sd-flags">'+chipsHtml(st.flags||[])+'</div>'+
+        (st.note?'<div class="sd-note">'+esc(st.note)+'</div>':'')+'</li>';
+    }).join('')+'</ul>';
+  }else{
+    listHtml='<div class="sd-none">该快照时全身无记录</div>';
+  }
+  box.innerHTML='<div class="sd-head">'+esc(fmtTime(s.time))+' · '+ids.length+' 个部位有记录</div>'+
+    '<button class="sd-view">在人体图上查看</button>'+listHtml;
+  box.querySelector('.sd-view').addEventListener('click',function(){
+    viewSnapshot=s;
+    document.getElementById('modalSnap').className='modal';
+    renderAll();
+    toast('回看模式：人体图与列表显示该时刻状态');
+  });
+}
+document.getElementById('btnSnap').addEventListener('click',function(){
+  modalSnapIndex=data.snapshots.length-1;
+  openSnapModal();
+});
+document.getElementById('snapClose').addEventListener('click',function(){
+  document.getElementById('modalSnap').className='modal';
+});
+document.getElementById('modalSnap').addEventListener('click',function(ev){
+  if(ev.target===this)this.className='modal';
+});
+document.getElementById('btnBackNow').addEventListener('click',function(){
+  viewSnapshot=null;renderAll();toast('已返回当前状态');
+});
+
+/* ================= 交互 ================= */
+function inView(p,view){return p.views==='FB'||p.views===view[0].toUpperCase();}
+function switchView(view){
+  currentView=view;
+  document.getElementById('svgFront').classList.toggle('show',view==='front');
+  document.getElementById('svgBack').classList.toggle('show',view==='back');
+  document.getElementById('btnFront').classList.toggle('active',view==='front');
+  document.getElementById('btnBack').classList.toggle('active',view==='back');
+}
+document.getElementById('btnFront').addEventListener('click',function(){switchView('front');});
+document.getElementById('btnBack').addEventListener('click',function(){switchView('back');});
+
+function selectPart(id){
+  if(viewSnapshot){toast('回看模式中，请先点击「返回当前」');return;}
+  const p=PMAP[id];if(!p)return;
+  if(!inView(p,currentView))switchView(p.views==='F'?'front':'back');
+  selectedId=id;renderAll();
+}
+document.getElementById('stage').addEventListener('click',function(ev){
+  const g=ev.target.closest('.part');
+  if(g)selectPart(g.getAttribute('data-id'));
+});
+
+/* 悬停提示：文字与边框颜色跟随该部位当前状态 */
+const tip=document.getElementById('tip');
+const TIP_COLOR={'不适':'#fdf75c','需治疗':'#ff6b97','需锻炼':'#4dffb8','正常':'#9adcf0'};
+document.getElementById('stage').addEventListener('pointermove',function(ev){
+  const g=ev.target.closest?ev.target.closest('.part'):null;
+  if(!g){tip.style.display='none';return;}
+  const p=PMAP[g.getAttribute('data-id')];if(!p){tip.style.display='none';return;}
+  const f=flagsOf(p.id);
+  const col=f.length?(TIP_COLOR[f[0]]||'#00f0ff'):'#00f0ff';
+  tip.style.setProperty('--tc',col);
+  tip.innerHTML=esc(p.name)+(f.length?'<span class="t-flags">'+f.map(esc).join(' / ')+'</span>':'');
+  tip.style.display='block';
+  const x=Math.min(ev.clientX+16,window.innerWidth-150);
+  const y=Math.min(ev.clientY+16,window.innerHeight-60);
+  tip.style.left=x+'px';tip.style.top=y+'px';
+});
+document.getElementById('stage').addEventListener('pointerleave',function(){tip.style.display='none';});
+
+/* ================= 自动保存 ================= */
+/* 保存当前选中部位（选择状态 / 修改备注后自动触发） */
+function savePart(msg){
+  if(viewSnapshot||!selectedId)return false;
+  const sel=document.querySelector('input[name="partStatus"]:checked');
+  const flags=sel?[sel.value]:['正常'];
+  const note=document.getElementById('pNote').value.trim();
+  const now=new Date().toISOString();
+  const r=data.parts[selectedId]||{};
+  if(!r.history)r.history=[];
+  const prevFlag=(r.flags&&r.flags[0])||'';
+  r.name=PMAP[selectedId].name;r.flags=flags;r.note=note;r.updatedAt=now;
+  /* 异常天数：首次异常起算；换异常类型不重算；恢复正常清零 */
+  if(flags[0]==='正常'){r.since=null;}
+  else if(!r.since||prevFlag==='正常'||!prevFlag){r.since=now;}
+  /* 1 分钟内同状态的连续保存（如连续输入备注）合并为上一条历史，避免刷屏 */
+  const lastH=r.history[r.history.length-1];
+  if(lastH&&(new Date(now)-new Date(lastH.time))<60000&&(lastH.flags||[]).join()===flags.join()){
+    lastH.time=now;lastH.note=note;
+  }else{
+    r.history.push({time:now,flags:flags.slice(),note:note});
+  }
+  data.parts[selectedId]=r;
+  updateSnapshot();
+  data.dirty=true;
+  persist();renderAll();
+  toast(msg||('✓ '+PMAP[selectedId].name+' 已自动保存：'+flags[0]));
+  return true;
+}
+/* 单选：选择即自动保存；syncChkClasses 保证旧选项颜色恢复默认 */
+['ckPain','ckTreat','ckTrain','ckOk'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',function(){
+    syncChkClasses();
+    savePart();
+  });
+});
+/* 备注输入防抖自动保存（停止输入 1 秒后） */
+let noteTimer=null;
+document.getElementById('pNote').addEventListener('input',function(){
+  clearTimeout(noteTimer);
+  noteTimer=setTimeout(function(){
+    if(savePart('✓ 备注已自动保存')){}
+  },1000);
+});
+function syncChkClasses(){
+  ['ckPain','ckTreat','ckTrain','ckOk'].forEach(function(id){
+    const el=document.getElementById(id);
+    el.closest('.chk').classList.toggle('on',el.checked);
+  });
+}
+(function(){const orig=renderPanel;renderPanel=function(){orig();syncChkClasses();};})();
+
+/* 清空单部位 */
+document.getElementById('btnClearPart').addEventListener('click',function(){
+  if(viewSnapshot){toast('回看模式中，请先返回当前');return;}
+  if(!selectedId)return;
+  const p=PMAP[selectedId];
+  if(!rec(selectedId)){toast('该部位暂无记录');return;}
+  if(!confirm('确认清空「'+p.name+'」的全部记录与历史快照？此操作不可恢复。'))return;
+  delete data.parts[selectedId];persist();renderAll();
+  toast('已清空「'+p.name+'」');
+});
+
+/* 载入 / 清空 */
+/* 载入数据文件 */
+function normalizeSince(d){
+  Object.keys(d.parts).forEach(function(id){
+    const r=d.parts[id];
+    if(!r||!r.flags||!r.flags.length)return;
+    if(r.flags[0]==='正常'){r.since=null;return;}
+    if(!r.since){
+      let t=r.updatedAt||null;
+      (r.history||[]).forEach(function(h){
+        const hf=(h.flags||[])[0];
+        if(hf&&hf!=='正常'&&(!t||new Date(h.time)<new Date(t)))t=h.time;
+      });
+      r.since=t||new Date().toISOString();
+    }
+  });
+}
+function applyImport(text){
+  try{
+    const o=JSON.parse(text);
+    if(!o||typeof o.parts!=='object')throw new Error('文件格式不对：缺少部位数据');
+    if(o.owner&&o.owner!==OWNER){
+      throw new Error('信息错误：该数据属于「'+o.owner+'」，与当前身份「'+OWNER+'」不符，无法载入');
+    }
+    if(!confirm('载入将覆盖当前全部记录（当前 '+Object.keys(data.parts).length+' 个部位），确认继续？'))return false;
+    data={version:o.version||1,owner:OWNER,updatedAt:o.updatedAt||null,parts:o.parts,
+      snapshots:Array.isArray(o.snapshots)?o.snapshots:[],dirty:false};
+    normalizeSince(data);
+    viewSnapshot=null;selectedId=null;
+    document.getElementById('modalAdv').className='modal';
+    document.getElementById('modalFiles').className='modal';
+    persist();renderAll();
+    toast('✓ 已载入数据文件：'+Object.keys(data.parts).length+' 个部位');
+    return true;
+  }catch(e){toast('⚠ 载入失败：'+e.message);return false;}
+}
+async function refreshFileList(){
+  const ul=document.getElementById('fileList');
+  const pathEl=document.getElementById('filesPath');
+  if(!FS_OK){
+    pathEl.textContent='当前浏览器不支持读取指定文件夹，请用下方按钮选择文件。';
+    ul.innerHTML='<li class="fempty">—</li>';
+    return;
+  }
+  pathEl.textContent='正在读取数据文件夹…';
+  const d=await ensureBoundDir(false);
+  if(!d){
+    pathEl.textContent='未绑定数据文件夹（或需要重新授权）。请到「高级设置 → 保存路径」绑定，或点下方按钮从其他位置选择文件。';
+    ul.innerHTML='<li class="fempty">未绑定文件夹</li>';
+    return;
+  }
+  pathEl.textContent='数据文件夹：'+d.name;
+  const files=[];
+  try{
+    for await (const h of d.values()){
+      if(h.kind!=='file'||!/\.json$/i.test(h.name))continue;
+      const f=await h.getFile();
+      files.push({name:h.name,size:f.size,mtime:f.lastModified});
+    }
+  }catch(e){
+    pathEl.textContent='读取文件夹失败：'+e.message;
+  }
+  if(!files.length){
+    ul.innerHTML='<li class="fempty">该文件夹内暂无 JSON 数据文件</li>';
+    return;
+  }
+  files.sort(function(a,b){return b.mtime-a.mtime;});
+  ul.innerHTML=files.map(function(f,i){
+    return '<li data-i="'+i+'"><span class="fname">'+esc(f.name)+'</span>'+
+      '<span class="fsize">'+(f.size/1024).toFixed(1)+' KB · '+esc(fmtTime(new Date(f.mtime).toISOString()))+'</span></li>';
+  }).join('');
+  ul.querySelectorAll('li[data-i]').forEach(function(li){
+    li.addEventListener('click',async function(){
+      const f=files[parseInt(li.getAttribute('data-i'),10)];
+      try{
+        const fh=await d.getFileHandle(f.name);
+        const file=await fh.getFile();
+        applyImport(await file.text());
+      }catch(e){toast('⚠ 读取失败：'+e.message);}
+    });
+  });
+}
+document.getElementById('btnImport').addEventListener('click',function(){
+  document.getElementById('modalAdv').className='modal';
+  document.getElementById('modalFiles').className='modal show';
+  refreshFileList();
+});
+document.getElementById('filesClose').addEventListener('click',function(){
+  document.getElementById('modalFiles').className='modal';
+});
+document.getElementById('modalFiles').addEventListener('click',function(ev){
+  if(ev.target===this)this.className='modal';
+});
+document.getElementById('filesBrowse').addEventListener('click',function(){
+  document.getElementById('fileImport').click();
+});
+document.getElementById('fileImport').addEventListener('change',function(){
+  const file=this.files[0];this.value='';
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(){applyImport(reader.result);};
+  reader.readAsText(file,'utf-8');
+});
+document.getElementById('btnClear').addEventListener('click',function(){
+  if(!Object.keys(data.parts).length){toast('当前没有数据');return;}
+  if(!confirm('确认清空全部数据？所有部位记录与快照都会被删除且不可恢复！'))return;
+  if(!confirm('再次确认：真的要清空全部数据吗？建议先把数据保存到文件。'))return;
+  data=newData();persist();selectedId=null;viewSnapshot=null;
+  document.getElementById('modalAdv').className='modal';
+  renderAll();
+  toast('已清空全部数据');
+});
+
+/* 高级设置弹窗（保存路径 / 导出 / 载入 / 清空） */
+document.getElementById('btnAdv').addEventListener('click',function(){
+  renderPathConfig();
+  document.getElementById('modalAdv').className='modal show';
+});
+document.getElementById('advClose').addEventListener('click',function(){
+  document.getElementById('modalAdv').className='modal';
+});
+document.getElementById('modalAdv').addEventListener('click',function(ev){
+  if(ev.target===this)this.className='modal';
+});
+
+/* toast */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){t.style.display='none';},2600);
+}
+
+/* 键盘：Esc 取消选中 / 关闭模态 */
+document.addEventListener('keydown',function(ev){
+  if(ev.key==='Escape'){
+    if(document.getElementById('modalAdv').className.indexOf('show')>=0){
+      document.getElementById('modalAdv').className='modal';return;
+    }
+    if(document.getElementById('modalFiles').className.indexOf('show')>=0){
+      document.getElementById('modalFiles').className='modal';return;
+    }
+    if(document.getElementById('modalSnap').className.indexOf('show')>=0){
+      document.getElementById('modalSnap').className='modal';return;
+    }
+    if(viewSnapshot){viewSnapshot=null;renderAll();return;}
+    selectedId=null;renderAll();
+  }
+});
+
+/* ================= 扫描线：扫过异常部位时闪烁一次 ================= */
+const SCAN_PERIOD=5000;          /* 一轮扫描时长 5 秒 */
+const scanLine=document.getElementById('scanline');
+const scanWrap=document.getElementById('stage');
+let scanStart=Date.now();
+let scanLastProg=0;
+let scannedSet=new Set();
+function flashClassOf(id){
+  const f=flagsOf(id);
+  if(f.indexOf('不适')>=0)return 'flash-discomfort';
+  if(f.indexOf('需治疗')>=0)return 'flash-treat';
+  if(f.indexOf('需锻炼')>=0)return 'flash-train';
+  return null;                   /* 正常 / 无记录 不闪 */
+}
+function scanTick(){
+  const now=Date.now();
+  const prog=((now-scanStart)%SCAN_PERIOD)/SCAN_PERIOD;
+  if(prog<scanLastProg)scannedSet=new Set();   /* 新一轮扫描，重置已闪集合 */
+  scanLastProg=prog;
+  scanLine.style.top=(2+prog*96)+'%';
+  const wr=scanWrap.getBoundingClientRect();
+  const y=wr.top+(2+prog*96)/100*wr.height;
+  const svg=document.getElementById(currentView==='front'?'svgFront':'svgBack');
+  svg.querySelectorAll('.part').forEach(function(el){
+    const id=el.getAttribute('data-id');
+    if(scannedSet.has(id))return;
+    const r=el.getBoundingClientRect();
+    if(y>=r.top&&y<=r.bottom){
+      scannedSet.add(id);
+      const cls=flashClassOf(id);
+      if(cls){
+        el.classList.add(cls);
+        setTimeout(function(){el.classList.remove(cls);},520);
+      }
+    }
+  });
+}
+setInterval(scanTick,40);
+
+renderPathConfig();
+ensureBoundDir(false).then(function(){renderPathConfig();});
+renderAll();
+if(ownerWarning){toast(ownerWarning);}
+else if(data.dirty){toast('⚠ 有改动未保存到文件，建议点击底栏「保存到文件」');}
+else if(!Object.keys(data.parts).length){toast('缓存为空：可用「高级设置 → 载入数据文件」读取最新数据');}
+</script>
+</body>
+</html>
