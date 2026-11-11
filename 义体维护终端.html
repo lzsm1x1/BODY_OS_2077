@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 义体维护终端 v0.0.12 -->
+<!-- 义体维护终端 v0.0.13 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -151,16 +151,19 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .hud-ring{animation:hudDash 22s linear infinite}
 @keyframes hudDash{from{stroke-dashoffset:0}to{stroke-dashoffset:-336}}
 .hud-t{font-family:var(--font);font-size:11px;letter-spacing:2px;fill:#ffb02e;opacity:.72}
-/* 扫描闪 v0.0.12：闪烁是「事件触发」——部位平时完全静止（静态底色 + 常态描边，
-   不再按周期呼吸），只有扫描线亮头压到部位的一瞬间触发一次约 0.66s 的单脉冲：
-   0→16% 快速冲到峰值（快速闪一下），随后 ease-out 衰减回静态色，然后彻底安静。
+/* 扫描闪 v0.0.13：闪烁是「事件触发」——部位平时完全静止（静态底色 + 常态描边，
+   不按周期呼吸），只有扫描亮头压到部位【几何中心】的一瞬间触发一次约 0.45s 的单脉冲：
+   0→16%（约 72ms）快速冲到峰值（快速闪一下），随后 ease-out 衰减回静态色，然后彻底安静。
+   中心越线触发（v0.0.13，替代 v0.0.12 的 bbox 顶边触发）：顶边触发会让相邻部位以
+   0.3~0.5s 错峰起闪、660ms 脉冲彼此重叠，同一片区域看起来「连闪很多下」；
+   改为中心越线后触发点与视觉严格同步、间隔=中心距（约 0.4~0.5s），逐个点名。
    峰值沿用 v0.0.11 的三重杠杆（保留平滑感）：
      ① 填充：静态淡底（--f）→ 脉冲整块亮起（--f-pk）；
      ② 描边：1.5px 常态色 → 3.2px 亮色粗线（--s-pk）；
      ③ 外发光：几乎无光 → 8px+24px+48px 三层光晕。
    异常部位峰值高（缩到很小也能一眼抓到），正常部位只轻微一亮（扫描进度反馈）。
-   触发/移除时机由 JS scanTick 控制：scan-up 类在脉冲播完后才移除，
-   保证衰减完整走完、不中途掐断跳变；每轮扫描每个部位只闪一次。
+   触发/移除时机由 JS scanTick 的跨越检测控制（每轮每部位数学上恰好一次）：
+   scan-up 类在脉冲播完后才移除，保证衰减完整走完、不中途掐断跳变。
    defs 副本（外发光/内透光/色差层）只做整层明暗脉冲，不叠滤镜以免反复重算大范围模糊 */
 @keyframes scanFlashFillK{
   0%{fill:var(--f)}
@@ -176,12 +179,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
   100%{filter:drop-shadow(0 0 2px var(--c))}}
 @keyframes scanFlashDimK{0%,100%{opacity:.45}16%{opacity:1}}
 /* 外发光滤镜脉冲只给 #gFront/#gBack 里的本体——defs 副本在模糊层里，叠滤镜会反复重算 */
-#gFront .part.scan-up,#gBack .part.scan-up{animation:scanFlashHaloK .66s ease-out 1}
-.part.scan-up .sf{animation:scanFlashFillK .66s ease-out 1,scanFlashStrokeK .66s ease-out 1}
-.part.scan-up .sl{animation:scanFlashStrokeK .66s ease-out 1}
+#gFront .part.scan-up,#gBack .part.scan-up{animation:scanFlashHaloK .45s ease-out 1}
+.part.scan-up .sf{animation:scanFlashFillK .45s ease-out 1,scanFlashStrokeK .45s ease-out 1}
+.part.scan-up .sl{animation:scanFlashStrokeK .45s ease-out 1}
 /* 异常部位的 defs 副本平时压暗待机，被扫到时整层明暗脉冲一下 */
 .part.breathe-glow{opacity:.45}
-.part.breathe-glow.scan-up{animation:scanFlashDimK .66s ease-out 1}
+.part.breathe-glow.scan-up{animation:scanFlashDimK .45s ease-out 1}
 @media (prefers-reduced-motion:reduce){
   #gFront .part.scan-up,#gBack .part.scan-up,.part.scan-up .sf,.part.scan-up .sl,
   .part.breathe-glow.scan-up{animation:none}
@@ -1564,32 +1567,35 @@ document.addEventListener('keydown',function(ev){
   }
 });
 
-/* ================= 扫描带：事件触发闪烁（v0.0.12） =================
-   部位平时完全静止；扫描亮头（亮头在扫描位置、向上 54px 拖尾）压到哪个部位，
-   哪个部位就快速闪一下（0→16% 冲到峰值，随后 0.66s 内衰减回静态色）。
-   边沿触发 + Set 去重：每轮扫描每个部位只闪一次，长条部位（躯干）不会被压住期间连闪。
+/* ================= 扫描带：事件触发闪烁（v0.0.13 中心越线触发） =================
+   部位平时完全静止；亮头压到部位【几何中心】的一瞬间，该部位快速闪一下
+   （前 16%≈72ms 冲到峰值，随后 0.45s 内衰减回静态色，然后彻底安静）。
+   触发用「跨越检测」：上一 tick 亮头还在中心上方、本 tick 压到或越过中心（prevY < cy ≤ y）
+   → 触发一次。亮头在一轮内自上而下单调推进，跨越在数学上每轮每部位恰好发生一次，
+   不需要 Set 去重；长条部位（躯干）也只闪一下，相邻部位以中心距错峰、不再重叠连闪。
+   扫描回绕（y 变小）的 tick 只重置基准、不触发（最顶部部位中心也在扫描起点 2% 之下）。
+   切换正/背面时中心已过线的部位本轮跳过、下一轮自然补上，不会齐闪一排。
    scan-up 类由 setTimeout 在脉冲播完后才移除——动画完整衰减到位，
    不会被中途掐断跳变（也避开「动画移除不触发 transition」的坑） */
 const SCAN_PERIOD=5000;          /* 一轮扫描时长 5 秒 */
-const FLASH_MS=660;              /* 脉冲时长，与 CSS animation 时长一致 */
+const FLASH_MS=450;              /* 脉冲时长，与 CSS animation .45s 一致 */
 const scanLine=document.getElementById('scanline');
 const scanWrap=document.getElementById('stage');
 let scanStart=Date.now();
-const flashed=new Set();         /* 本轮扫描已闪过的部位 */
+let scanPrevY=null;              /* 上一 tick 亮头的屏幕坐标（null=首 tick 只记基准） */
 function scanTick(){
   const now=Date.now();
   const prog=((now-scanStart)%SCAN_PERIOD)/SCAN_PERIOD;
   scanLine.style.top=(2+prog*96)+'%';
   const wr=scanWrap.getBoundingClientRect();
   const y=wr.top+(2+prog*96)/100*wr.height;   /* 亮头所在屏幕坐标 */
-  const bandTop=y-54;                          /* 拖尾覆盖亮头上方 54px */
-  const gEl=document.getElementById(currentView==='front'?'gFront':'gBack');
-  const src=document.getElementById(currentView==='front'?'srcF':'srcB');
-  gEl.querySelectorAll('.part').forEach(function(el){
-    const r=el.getBoundingClientRect();
-    if(r.bottom>=bandTop&&r.top<=y){
-      if(!flashed.has(el)){
-        flashed.add(el);
+  if(scanPrevY!==null&&y>=scanPrevY){
+    const gEl=document.getElementById(currentView==='front'?'gFront':'gBack');
+    const src=document.getElementById(currentView==='front'?'srcF':'srcB');
+    gEl.querySelectorAll('.part').forEach(function(el){
+      const r=el.getBoundingClientRect();
+      const cy=(r.top+r.bottom)/2;            /* 部位几何中心 */
+      if(scanPrevY<cy&&cy<=y){
         const id=el.getAttribute('data-id');
         const copy=src?src.querySelector('.part[data-id="'+id+'"]'):null;
         el.classList.add('scan-up');
@@ -1599,8 +1605,9 @@ function scanTick(){
           if(copy)copy.classList.remove('scan-up');
         },FLASH_MS);
       }
-    }else flashed.delete(el);
-  });
+    });
+  }
+  scanPrevY=y;
 }
 setInterval(scanTick,40);
 
