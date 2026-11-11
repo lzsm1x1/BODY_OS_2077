@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 义体维护终端 v0.0.15 -->
+<!-- 义体维护终端 v0.0.16 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -151,7 +151,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .hud-ring{animation:hudDash 22s linear infinite}
 @keyframes hudDash{from{stroke-dashoffset:0}to{stroke-dashoffset:-336}}
 .hud-t{font-family:var(--font);font-size:11px;letter-spacing:2px;fill:#ffb02e;opacity:.72}
-/* 扫描闪 v0.0.15：**机制回退 v0.0.9**（用户决定），**光效保留 v0.0.12~14 的脉冲**。
+/* 扫描闪 v0.0.16：机制=v0.0.9（用户决定回退），光效=脉冲现行版，时长 0.45s→0.2s（用户要求）。
    机制（与 v0.0.9 逐行同义）：
      · 只有【异常部位】闪（不适/需治疗/需锻炼）——正常/无记录完全不闪；
      · 扫描亮头进入部位包围盒（r.top ≤ y ≤ r.bottom）的那一下触发；
@@ -159,8 +159,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
      · 正/背面互不影响：只遍历当前视图，另一面 SVG 是 display:none。
    此前 v0.0.12~14 让所有部位（含正常）都闪，密集区（头部 8 个部位、胸区 7 个部位）
    一条扫描线过去就是一串连闪；回退后正常区域完全安静，只有异常点闪。
-   光效（保留）：触发加 scan-up 类 → 四个 scanFlash 动画 0.45s 单脉冲，
-   0→16%（约 72ms）冲到三重杠杆峰值，随后 ease-out 衰减回静态色：
+   光效（保留）：触发加 scan-up 类 → 四个 scanFlash 动画 0.2s 单脉冲，
+   0→16%（约 32ms）冲到三重杠杆峰值，随后 ease-out 衰减回静态色：
      ① 填充：静态淡底（--f）→ 整块亮起（--f-pk，透明度约 3 倍）；
      ② 描边：1.5px 常态色 → 3.2px 亮色粗线（--s-pk）；
      ③ 外发光：几乎无光 → 8px+24px+48px 三层光晕。
@@ -180,12 +180,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
   100%{filter:drop-shadow(0 0 2px var(--c))}}
 @keyframes scanFlashDimK{0%,100%{opacity:.45}16%{opacity:1}}
 /* 外发光滤镜脉冲只给 #gFront/#gBack 里的本体——defs 副本在模糊层里，叠滤镜会反复重算 */
-#gFront .part.scan-up,#gBack .part.scan-up{animation:scanFlashHaloK .45s ease-out 1}
-.part.scan-up .sf{animation:scanFlashFillK .45s ease-out 1,scanFlashStrokeK .45s ease-out 1}
-.part.scan-up .sl{animation:scanFlashStrokeK .45s ease-out 1}
+#gFront .part.scan-up,#gBack .part.scan-up{animation:scanFlashHaloK .2s ease-out 1}
+.part.scan-up .sf{animation:scanFlashFillK .2s ease-out 1,scanFlashStrokeK .2s ease-out 1}
+.part.scan-up .sl{animation:scanFlashStrokeK .2s ease-out 1}
 /* 异常部位的 defs 副本平时压暗待机，被扫到时整层明暗脉冲一下 */
 .part.breathe-glow{opacity:.45}
-.part.breathe-glow.scan-up{animation:scanFlashDimK .45s ease-out 1}
+.part.breathe-glow.scan-up{animation:scanFlashDimK .2s ease-out 1}
 @media (prefers-reduced-motion:reduce){
   #gFront .part.scan-up,#gBack .part.scan-up,.part.scan-up .sf,.part.scan-up .sl,
   .part.breathe-glow.scan-up{animation:none}
@@ -1568,15 +1568,15 @@ document.addEventListener('keydown',function(ev){
   }
 });
 
-/* ================= 扫描带：事件触发闪烁（v0.0.15，机制回退 v0.0.9） =================
+/* ================= 扫描带：事件触发闪烁（v0.0.16，机制=v0.0.9，脉冲 0.2s） =================
    机制与 v0.0.9 逐行同义：只遍历当前视图（另一面 display:none，正/背面绝不互相影响）；
    亮头进入部位包围盒（r.top ≤ y ≤ r.bottom）→ scannedSet 按部位 id 记一笔；
    异常部位（statusClass 非空）触发一次闪烁，正常/无记录不闪；prog 回绕重置集合，
    每轮扫描每个异常部位恰好闪一次。
-   光效保留现行版：scan-up 类触发 scanFlash* 四动画（0.45s 单脉冲、三重杠杆峰值），
+   光效保留现行版：scan-up 类触发 scanFlash* 四动画（0.2s 单脉冲、三重杠杆峰值），
    并同步 defs 副本（breathe-glow 压暗层脉冲一下）；类由 setTimeout 在脉冲播完后移除。 */
 const SCAN_PERIOD=5000;          /* 一轮扫描时长 5 秒 */
-const FLASH_MS=450;              /* 脉冲时长，与 CSS animation .45s 一致 */
+const FLASH_MS=200;              /* 脉冲时长，与 CSS animation .2s 一致 */
 const scanLine=document.getElementById('scanline');
 const scanWrap=document.getElementById('stage');
 let scanStart=Date.now();
