@@ -108,6 +108,7 @@ REQS = [
     ("R67", "v0.0.12", "视觉", "闪烁改为事件触发型：部位平时完全静止（静态底色+常态描边，不再按周期呼吸），只有扫描亮头压到部位的一瞬间触发一次约 0.66s 单脉冲（0→16% 冲到峰值，随后衰减回静态色）；所有部位扫到都闪（正常部位轻微一亮作扫描进度反馈），异常部位峰值沿用双拍心跳亮度（填充近实心、描边 3.2px、外发光三层）闪得更猛；每轮扫描每个部位只闪一次（边沿触发去重）；悬停/选中定格峰值常亮且被扫过时不闪", "用户", "已完成", D2, "keyframes：scanFlashFillK/scanFlashStrokeK/scanFlashHaloK/scanFlashDimK；scan-up 类由 JS 定时器在脉冲播完后移除，保证衰减完整；reduced-motion 下自动停用"),
     ("R68", "v0.0.13", "视觉", "扫描闪触发点改为部位几何中心越线：亮头压到几何中心的那一下才闪（v0.0.12 按包围盒顶边触发，相邻部位错峰 0.3~0.5s 起闪、660ms 脉冲互相重叠，同一片区域看起来连闪很多下）；改用跨越检测（上一 tick 亮头在中心上方、本 tick 压到/越过中心），单调推进下每轮每部位数学上恰好一次，Set 去重不再需要；脉冲时长缩短到 0.45s，相邻部位以中心距（约 0.4~0.5s）逐个点名、基本不重叠；峰值高度不变", "用户", "已完成", D2, "JS scanTick 跨越检测 + FLASH_MS=450；CSS 四个 scanFlash 动画 .66s→.45s；实测触发间隔精确 5000ms、亮头距中心 0.6~4.6px"),
     ("R69", "v0.0.14", "视觉", "扫描闪峰值按状态分两档：异常部位（st-*）保持三重杠杆猛闪（填充近实心、3.2px 描边、48px 三层光晕）；正常部位改用 Soft 组柔和轻闪（峰值=悬停亮度 .28、2.2px 描边、单层 6px 光晕）。修复此前正常与异常共用同一组峰值动画（48px 三层光晕），头部等部位密集区（8 个部位中心挤在约 60px 内）被扫过时半秒内连环泛光、观感即闪很多下的问题；实测：正常峰值 filter 单层 6px、异常三层含 48px，触发节奏不变", "用户", "已完成", D2, "Soft keyframes：scanFlashFillSoftK/scanFlashStrokeSoftK/scanFlashHaloSoftK；选择器 :not(.st-discomfort):not(.st-treat):not(.st-train) 特异性更高，盖过基础组；用户真实数据胸=不适、左大臂=需锻炼、头部全正常，与反馈现象完全对应"),
+    ("R70", "v0.0.15", "视觉", "闪烁机制回退 v0.0.9、光效保留现行版（用户决定）：只有异常部位会闪，正常/无记录完全不闪（替代 v0.0.12~14 的所有部位都闪）；触发判定回到亮头进入部位包围盒（r.top ≤ y ≤ r.bottom），scannedSet 按部位 id 去重、prog 回绕重置，每轮每异常部位恰好一次；正/背面只判定当前视图（背面零触发已实测）。光效不变：scan-up 触发 scanFlash 四动画 0.45s 单脉冲、三重杠杆峰值、defs 副本同步、悬停/选中常亮。回退原因：正常部位也闪导致密集区（头部 8 部位、胸区 7 部位）一条扫描线过去连环闪多下", "用户", "已完成", D2, "v0.0.9 原始机制 git dfc061f 提取比对：flashClassOf→statusClass、scannedSet/scanLastProg 逐行同义；删除 Soft 组死代码；实测 10/10：正常部位(含头发)零闪烁、背面零触发、chest 每轮恰一次间隔精确 5000ms、峰值 .62 保留"),
 ]
 
 HEADERS = ["需求编号", "所属版本", "模块", "需求描述", "来源", "状态", "提出日期", "备注"]
@@ -153,7 +154,7 @@ for r in range(data_end + 1, row_end + 1):
             cell.number_format = "YYYY-MM-DD"
         cell.alignment = align_l if ci in (4, 8) else align_c
 
-dv_ver = DataValidation(type="list", formula1='"v0.0.1,v0.0.2,v0.0.3,v0.0.4,v0.0.5,v0.0.6,v0.0.7,v0.0.8,v0.0.9,v0.0.10,v0.0.11,v0.0.12,v0.0.13,v0.0.14,v0.1.0,v1.0.0"', allow_blank=True)
+dv_ver = DataValidation(type="list", formula1='"v0.0.1,v0.0.2,v0.0.3,v0.0.4,v0.0.5,v0.0.6,v0.0.7,v0.0.8,v0.0.9,v0.0.10,v0.0.11,v0.0.12,v0.0.13,v0.0.14,v0.0.15,v0.1.0,v1.0.0"', allow_blank=True)
 dv_mod = DataValidation(type="list", formula1='"整体,视觉,部位,交互,数据,历史,项目"', allow_blank=True)
 dv_src = DataValidation(type="list", formula1='"用户,方案默认,AI提问"', allow_blank=True)
 dv_status = DataValidation(type="list", formula1='"已确认,待确认,新增,已完成,已放弃"', allow_blank=True)
