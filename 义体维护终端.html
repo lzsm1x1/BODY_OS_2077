@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 义体维护终端 v0.0.13 -->
+<!-- 义体维护终端 v0.0.14 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -151,17 +151,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .hud-ring{animation:hudDash 22s linear infinite}
 @keyframes hudDash{from{stroke-dashoffset:0}to{stroke-dashoffset:-336}}
 .hud-t{font-family:var(--font);font-size:11px;letter-spacing:2px;fill:#ffb02e;opacity:.72}
-/* 扫描闪 v0.0.13：闪烁是「事件触发」——部位平时完全静止（静态底色 + 常态描边，
+/* 扫描闪 v0.0.14：闪烁是「事件触发」——部位平时完全静止（静态底色 + 常态描边，
    不按周期呼吸），只有扫描亮头压到部位【几何中心】的一瞬间触发一次约 0.45s 的单脉冲：
    0→16%（约 72ms）快速冲到峰值（快速闪一下），随后 ease-out 衰减回静态色，然后彻底安静。
    中心越线触发（v0.0.13，替代 v0.0.12 的 bbox 顶边触发）：顶边触发会让相邻部位以
-   0.3~0.5s 错峰起闪、660ms 脉冲彼此重叠，同一片区域看起来「连闪很多下」；
+   0.3~0.5s 错峰起闪、脉冲彼此重叠，同一片区域看起来「连闪很多下」；
    改为中心越线后触发点与视觉严格同步、间隔=中心距（约 0.4~0.5s），逐个点名。
-   峰值沿用 v0.0.11 的三重杠杆（保留平滑感）：
-     ① 填充：静态淡底（--f）→ 脉冲整块亮起（--f-pk）；
-     ② 描边：1.5px 常态色 → 3.2px 亮色粗线（--s-pk）；
-     ③ 外发光：几乎无光 → 8px+24px+48px 三层光晕。
-   异常部位峰值高（缩到很小也能一眼抓到），正常部位只轻微一亮（扫描进度反馈）。
+   峰值按状态分两档（v0.0.14）：
+     · 异常部位（st-*）＝三重杠杆，猛闪：
+       ① 填充：静态淡底（--f）→ 整块亮起（--f-pk）；
+       ② 描边：1.5px 常态色 → 3.2px 亮色粗线（--s-pk）；
+       ③ 外发光：几乎无光 → 8px+24px+48px 三层光晕（缩到很小也能一眼抓到）。
+     · 正常部位＝柔和轻闪（Soft 组，只作扫描进度反馈）：峰值=悬停亮度（--f-hi）、
+       描边 2.2px、单层 6px 光晕。此前正常与异常共用同一组峰值（48px 三层光晕），
+       头部等部位密集区（8 个部位中心挤在约 60px 内）会在半秒内连环泛光，
+       观感即「闪很多下」——现在密集的正常器官只会轻微涟漪，异常的照样醒目。
    触发/移除时机由 JS scanTick 的跨越检测控制（每轮每部位数学上恰好一次）：
    scan-up 类在脉冲播完后才移除，保证衰减完整走完、不中途掐断跳变。
    defs 副本（外发光/内透光/色差层）只做整层明暗脉冲，不叠滤镜以免反复重算大范围模糊 */
@@ -178,16 +182,39 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
   16%{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))}
   100%{filter:drop-shadow(0 0 2px var(--c))}}
 @keyframes scanFlashDimK{0%,100%{opacity:.45}16%{opacity:1}}
+/* 正常部位的柔和轻闪（v0.0.14）：峰值=悬停亮度，单层 6px 光晕 */
+@keyframes scanFlashFillSoftK{
+  0%{fill:var(--f)}
+  16%{fill:var(--f-hi)}
+  100%{fill:var(--f)}}
+@keyframes scanFlashStrokeSoftK{
+  0%{stroke:var(--c);stroke-width:1.5}
+  16%{stroke:var(--c-hi);stroke-width:2.2}
+  100%{stroke:var(--c);stroke-width:1.5}}
+@keyframes scanFlashHaloSoftK{
+  0%{filter:drop-shadow(0 0 2px var(--c))}
+  16%{filter:drop-shadow(0 0 6px var(--c))}
+  100%{filter:drop-shadow(0 0 2px var(--c))}}
 /* 外发光滤镜脉冲只给 #gFront/#gBack 里的本体——defs 副本在模糊层里，叠滤镜会反复重算 */
 #gFront .part.scan-up,#gBack .part.scan-up{animation:scanFlashHaloK .45s ease-out 1}
 .part.scan-up .sf{animation:scanFlashFillK .45s ease-out 1,scanFlashStrokeK .45s ease-out 1}
 .part.scan-up .sl{animation:scanFlashStrokeK .45s ease-out 1}
+/* 正常部位（无异常状态类）改用 Soft 组：选择器特异性更高，盖过上面三行 */
+#gFront .part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train),
+#gBack .part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train){animation:scanFlashHaloSoftK .45s ease-out 1}
+.part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train) .sf{
+  animation:scanFlashFillSoftK .45s ease-out 1,scanFlashStrokeSoftK .45s ease-out 1}
+.part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train) .sl{animation:scanFlashStrokeSoftK .45s ease-out 1}
 /* 异常部位的 defs 副本平时压暗待机，被扫到时整层明暗脉冲一下 */
 .part.breathe-glow{opacity:.45}
 .part.breathe-glow.scan-up{animation:scanFlashDimK .45s ease-out 1}
 @media (prefers-reduced-motion:reduce){
   #gFront .part.scan-up,#gBack .part.scan-up,.part.scan-up .sf,.part.scan-up .sl,
-  .part.breathe-glow.scan-up{animation:none}
+  .part.breathe-glow.scan-up,
+  #gFront .part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train),
+  #gBack .part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train),
+  .part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train) .sf,
+  .part.scan-up:not(.st-discomfort):not(.st-treat):not(.st-train) .sl{animation:none}
 }
 /* ---------- 悬浮提示 ---------- */
 #tip{position:fixed;z-index:100;pointer-events:none;display:none;font-size:12px;
