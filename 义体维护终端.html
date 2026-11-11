@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 义体维护终端 v0.0.10 -->
+<!-- 义体维护终端 v0.0.11 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -126,9 +126,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .part:hover .sl,.part:focus-visible .sl,.part.selected .sl{stroke:var(--c-hi)}
 .part:hover .sf,.part:focus-visible .sf,.part.selected .sf{fill:var(--f-hi);stroke:var(--c-hi)}
 .part.selected .sf{stroke-dasharray:5 3}
-.st-discomfort{--c:var(--yellow);--c-hi:#fdf75c;--f:rgba(252,238,10,.16);--f-hi:rgba(252,238,10,.34)}
-.st-treat{--c:var(--red);--c-hi:#ff6b97;--f:rgba(255,42,109,.2);--f-hi:rgba(255,42,109,.4)}
-.st-train{--c:var(--green);--c-hi:#4dffb8;--f:rgba(0,255,156,.14);--f-hi:rgba(0,255,156,.32)}
+/* 状态配色：--f-pk/--s-pk = 呼吸脉冲最亮瞬间的填充 / 描边（v0.0.11） */
+.st-discomfort{--c:var(--yellow);--c-hi:#fdf75c;--f:rgba(252,238,10,.16);--f-hi:rgba(252,238,10,.34);
+  --f-pk:rgba(252,238,10,.62);--s-pk:#fff27a}
+.st-treat{--c:var(--red);--c-hi:#ff6b97;--f:rgba(255,42,109,.2);--f-hi:rgba(255,42,109,.4);
+  --f-pk:rgba(255,40,100,.62);--s-pk:#ff8fb0}
+.st-train{--c:var(--green);--c-hi:#4dffb8;--f:rgba(0,255,156,.14);--f-hi:rgba(0,255,156,.32);
+  --f-pk:rgba(0,255,156,.58);--s-pk:#8fffd0}
 /* ---------- 全息投影层（v0.0.9） ---------- */
 .hl-halo,.hl-tex,.hl-aber,.hl-glow,.hl-sheen,.hl-src,.hl-hud{pointer-events:none}
 .hl-tex{opacity:.26;mix-blend-mode:screen}
@@ -140,14 +144,53 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .hud-ring{animation:hudDash 22s linear infinite}
 @keyframes hudDash{from{stroke-dashoffset:0}to{stroke-dashoffset:-336}}
 .hud-t{font-family:var(--font);font-size:11px;letter-spacing:2px;fill:#ffb02e;opacity:.72}
-/* 呼吸光：异常部位持续缓慢明暗（v0.0.10，替代原「扫过才闪一次」的单次闪烁）；
-   挂在真实层与 defs 副本上 → 光晕层跟着一起呼吸 */
-@keyframes breatheK{0%,100%{filter:drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 7px var(--c))}
-  50%{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 20px var(--c))}}
-.part.breathe{animation:breatheK 2.4s ease-in-out infinite}
-/* 扫描带掠过：柔和增强（描边与填充经 .5s 缓动平滑过渡，进出都不突兀；不动 filter，不与呼吸光打架） */
+/* 呼吸光 v0.0.11：异常部位按「双拍心跳」节奏闪动——每轮两次脉冲（10% / 30%），
+   其余时间压暗待机，约 2.6 秒一轮。三重变化叠加：
+     ① 填充：常态是淡淡的底色（--f），脉冲时整块亮起来（--f-pk，透明度约 4 倍）；
+     ② 描边：由 1.5px 常态色胀到 3.2px 的亮色粗线（--s-pk）；
+     ③ 外发光：几乎无光 → 8px+24px+48px 三层光晕。
+   峰值时整块部位的观感亮度约是常态的 2~3 倍、发光范围约 10 倍，
+   缩小看整页也能一眼抓到；全程 ease-in-out，不跳变，且谷值仍是可辨认的状态色。
+   defs 副本（外发光/内透光/色差层）只做整层明暗，不叠滤镜以免反复重算大范围模糊 */
+@keyframes breatheFillK{
+  0%,100%{fill:var(--f)}
+  10%,14%{fill:var(--f-pk)}
+  22%{fill:var(--f-hi)}
+  30%,34%{fill:var(--f-pk)}
+  55%{fill:var(--f)}}
+@keyframes breatheStrokeK{
+  0%,100%{stroke:var(--c);stroke-width:1.5}
+  10%,14%{stroke:var(--s-pk);stroke-width:3.2}
+  22%{stroke:var(--c-hi);stroke-width:2.2}
+  30%,34%{stroke:var(--s-pk);stroke-width:3.2}
+  55%{stroke:var(--c);stroke-width:1.5}}
+@keyframes breatheHaloK{
+  0%,100%{filter:drop-shadow(0 0 2px var(--c))}
+  10%,14%{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))}
+  22%{filter:drop-shadow(0 0 4px var(--c))}
+  30%,34%{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))}
+  55%{filter:drop-shadow(0 0 2px var(--c))}}
+@keyframes breatheGlowK{0%,100%{opacity:.45}10%,14%{opacity:1}22%{opacity:.65}30%,34%{opacity:1}55%{opacity:.45}}
+.part.breathe{animation:breatheHaloK 2.6s ease-in-out infinite}
+.part.breathe .sf{animation:breatheFillK 2.6s ease-in-out infinite,breatheStrokeK 2.6s ease-in-out infinite}
+.part.breathe .sl{animation:breatheStrokeK 2.6s ease-in-out infinite}
+.part.breathe-glow{animation:breatheGlowK 2.6s ease-in-out infinite}
+/* 扫描带掠过：柔和增强（描边与填充经 .5s 缓动平滑过渡，进出都不突兀） */
 .part.scan-up .sf{fill:var(--f-hi);stroke:var(--c-hi);stroke-width:2.3}
 .part.scan-up .sl{stroke:var(--c-hi)}
+/* 光带压住异常部位 / 悬停 / 选中时，用 !important 盖过呼吸动画，
+   让这一下停在「最亮一帧」。不写 animation:none —— 动画仍在底下继续，
+   光带离开或取消选中后接着原来的节奏走，不会从 0 重头开始（避免闪一下顿挫） */
+.part.breathe.scan-up{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))!important}
+.part.breathe.scan-up .sf,.part.breathe:hover .sf,.part.breathe:focus-visible .sf,.part.breathe.selected .sf{
+  fill:var(--f-pk)!important;stroke:var(--s-pk)!important;stroke-width:3.2!important}
+.part.breathe.scan-up .sl,.part.breathe:hover .sl,.part.breathe:focus-visible .sl,.part.breathe.selected .sl{
+  stroke:var(--s-pk)!important;stroke-width:3.2!important}
+.part.breathe:hover,.part.breathe:focus-visible,.part.breathe.selected{
+  filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 22px var(--c))!important}
+@media (prefers-reduced-motion:reduce){
+  .part.breathe,.part.breathe .sf,.part.breathe .sl,.part.breathe-glow{animation:none}
+}
 /* ---------- 悬浮提示 ---------- */
 #tip{position:fixed;z-index:100;pointer-events:none;display:none;font-size:12px;
   background:rgba(5,10,18,.95);border:1px solid var(--tc,var(--cyan));padding:6px 10px;letter-spacing:1px;
@@ -758,7 +801,8 @@ function renderBody(){
       el.setAttribute('class','part '+st+br+(id===selectedId&&!viewSnapshot?' selected':''));
       if(src){
         const s=src.querySelector('.part[data-id="'+id+'"]');
-        if(s)s.setAttribute('class','part '+st+br);
+        /* 副本用 breathe-glow：只做整层明暗，不叠滤镜（副本本身已在模糊层里） */
+        if(s)s.setAttribute('class','part '+st+(st?' breathe-glow':''));
       }
     });
   });
