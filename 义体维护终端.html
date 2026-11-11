@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 义体维护终端 v0.0.9 -->
+<!-- 义体维护终端 v0.0.10 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -52,6 +52,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .panel{background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;min-height:0;
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));}
 .panel h2{font-size:12px;letter-spacing:3px;color:var(--cyan);padding:12px 14px 8px;border-bottom:1px solid rgba(0,240,255,.15)}
+/* ---------- 左侧：状态筛选（v0.0.10） ---------- */
+.filter-bar{display:flex;gap:4px;padding:8px 8px 6px;border-bottom:1px solid rgba(0,240,255,.15)}
+.fbtn{flex:1;font-family:var(--font);font-size:11px;padding:4px 0;cursor:pointer;letter-spacing:0;
+  color:var(--muted);background:rgba(0,240,255,.03);border:1px solid rgba(0,240,255,.18);transition:all .15s}
+.fbtn:hover{color:var(--cyan);border-color:var(--cyan)}
+.fbtn.on{color:#031;background:var(--cyan);border-color:var(--cyan);font-weight:700}
+.fbtn.on.t-discomfort{background:var(--yellow);border-color:var(--yellow)}
+.fbtn.on.t-treat{background:var(--red);border-color:var(--red)}
+.fbtn.on.t-train{background:var(--green);border-color:var(--green)}
+#ovList .filter-empty{color:var(--muted);font-size:12px;padding:18px 10px;text-align:center;line-height:1.9;letter-spacing:1px}
 /* ---------- 左侧部位列表 ---------- */
 #ovList{overflow-y:auto;flex:1;padding:4px 6px}
 #ovList .grp{font-size:15px;font-weight:700;color:var(--yellow);letter-spacing:2px;padding:10px 6px 4px;
@@ -110,8 +120,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 /* ---------- 人体部位 ---------- */
 .part{cursor:pointer;outline:none;transition:filter .15s;
   --c:rgba(0,240,255,.55);--c-hi:var(--cyan);--f:var(--cyan-faint);--f-hi:rgba(0,240,255,.28)}
-.part .sl{fill:none;stroke:var(--c);stroke-linecap:round}
-.part .sf{fill:var(--f);stroke:var(--c);stroke-width:1.5}
+.part .sl{fill:none;stroke:var(--c);stroke-linecap:round;transition:stroke .5s ease,stroke-width .5s ease}
+.part .sf{fill:var(--f);stroke:var(--c);stroke-width:1.5;transition:fill .5s ease,stroke .5s ease,stroke-width .5s ease}
 .part:hover,.part:focus-visible,.part.selected{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 16px var(--c))}
 .part:hover .sl,.part:focus-visible .sl,.part.selected .sl{stroke:var(--c-hi)}
 .part:hover .sf,.part:focus-visible .sf,.part.selected .sf{fill:var(--f-hi);stroke:var(--c-hi)}
@@ -130,13 +140,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .hud-ring{animation:hudDash 22s linear infinite}
 @keyframes hudDash{from{stroke-dashoffset:0}to{stroke-dashoffset:-336}}
 .hud-t{font-family:var(--font);font-size:11px;letter-spacing:2px;fill:#ffb02e;opacity:.72}
-/* 扫描线闪烁：扫过异常部位时快速渐亮再渐灭 */
-@keyframes flashK{0%{filter:none}35%{filter:drop-shadow(0 0 7px var(--fc)) drop-shadow(0 0 24px var(--fc))}100%{filter:none}}
-.part.flash-discomfort{--fc:#fdf75c;--c:#fdf75c;--c-hi:#fdf75c;--f:rgba(252,238,10,.5);animation:flashK .5s ease-in-out 1;transition:none}
-.part.flash-treat{--fc:#ff6b97;--c:#ff6b97;--c-hi:#ff6b97;--f:rgba(255,42,109,.5);animation:flashK .5s ease-in-out 1;transition:none}
-.part.flash-train{--fc:#4dffb8;--c:#4dffb8;--c-hi:#4dffb8;--f:rgba(0,255,156,.45);animation:flashK .5s ease-in-out 1;transition:none}
-/* 扫过时描边同时加粗，配合发光层更明显 */
-.part.flash-discomfort .sf,.part.flash-treat .sf,.part.flash-train .sf{stroke-width:2.6}
+/* 呼吸光：异常部位持续缓慢明暗（v0.0.10，替代原「扫过才闪一次」的单次闪烁）；
+   挂在真实层与 defs 副本上 → 光晕层跟着一起呼吸 */
+@keyframes breatheK{0%,100%{filter:drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 7px var(--c))}
+  50%{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 20px var(--c))}}
+.part.breathe{animation:breatheK 2.4s ease-in-out infinite}
+/* 扫描带掠过：柔和增强（描边与填充经 .5s 缓动平滑过渡，进出都不突兀；不动 filter，不与呼吸光打架） */
+.part.scan-up .sf{fill:var(--f-hi);stroke:var(--c-hi);stroke-width:2.3}
+.part.scan-up .sl{stroke:var(--c-hi)}
 /* ---------- 悬浮提示 ---------- */
 #tip{position:fixed;z-index:100;pointer-events:none;display:none;font-size:12px;
   background:rgba(5,10,18,.95);border:1px solid var(--tc,var(--cyan));padding:6px 10px;letter-spacing:1px;
@@ -299,6 +310,12 @@ footer button.danger:hover{background:rgba(255,42,109,.15);box-shadow:0 0 8px rg
 
   <aside class="panel">
     <h2>部位列表</h2>
+    <div class="filter-bar" id="filterBar">
+      <button class="fbtn on" data-f="全部">全部</button>
+      <button class="fbtn t-discomfort" data-f="不适">不适</button>
+      <button class="fbtn t-treat" data-f="需治疗">需治疗</button>
+      <button class="fbtn t-train" data-f="需锻炼">需锻炼</button>
+    </div>
     <div id="ovList"></div>
     <div class="legend">
       <span><i style="background:var(--yellow)"></i>不适</span>
@@ -639,20 +656,7 @@ function load(){
       if(o&&typeof o.parts==='object'){
         if(!o.snapshots||!Array.isArray(o.snapshots))o.snapshots=[];
         if(!o.owner)o.owner=OWNER;
-        /* 兼容旧数据：异常部位补 since（最早一次异常的时间） */
-        Object.keys(o.parts).forEach(function(id){
-          const r=o.parts[id];
-          if(!r||!r.flags||!r.flags.length)return;
-          if(r.flags[0]==='正常'){r.since=null;return;}
-          if(!r.since){
-            let t=r.updatedAt||null;
-            (r.history||[]).forEach(function(h){
-              const hf=(h.flags||[])[0];
-              if(hf&&hf!=='正常'&&(!t||new Date(h.time)<new Date(t)))t=h.time;
-            });
-            r.since=t||new Date().toISOString();
-          }
-        });
+        normalizeSinceMap(o);
         return o;
       }
     }
@@ -668,15 +672,43 @@ function persist(){
   catch(e){toast('⚠ 本地存储失败：'+e.message);}
 }
 function rec(id){return data.parts[id]||null;}
-/* 异常持续天数：从首次被标记异常那天起算（当天=0 天），恢复正常后清零；-1 表示当前无异常 */
+/* 各状态独立计天数（v0.0.10）：sinceMap = { '需治疗': ISO, '不适': ISO, '需锻炼': ISO }
+   进入某异常状态时若无记录则从当天起算（0 天）；回正常清零；切换状态互不覆盖 */
 const DAY_MS=86400000;
-function abnormalDays(id){
+function statusDays(id,flag){
   const r=rec(id);
-  if(!r||!r.since)return -1;
-  const f=r.flags||[];
-  if(!f.length||f[0]==='正常')return -1;
-  const n=Math.floor((Date.now()-new Date(r.since).getTime())/DAY_MS);
+  if(!r||!flag||flag==='正常')return -1;
+  const m=r.sinceMap||{};
+  const t=m[flag];
+  if(!t)return -1;
+  const n=Math.floor((Date.now()-new Date(t).getTime())/DAY_MS);
   return n>0?n:0;
+}
+/* 旧数据迁移（v0.0.9 及以前只有单个 since 字符串 → 挂到当前异常状态名下）；
+   无 since 的异常部位从历史里回溯最早一次异常时间 */
+function normalizeSinceMap(o){
+  if(!o||typeof o.parts!=='object')return;
+  Object.keys(o.parts).forEach(function(id){
+    const r=o.parts[id];
+    if(!r||!r.flags||!r.flags.length)return;
+    if(typeof r.sinceMap!=='object'||!r.sinceMap)r.sinceMap={};
+    if(typeof r.since==='string'&&r.since){
+      const f=r.flags[0];
+      if(f&&f!=='正常'&&!r.sinceMap[f])r.sinceMap[f]=r.since;
+      r.since=null;
+    }
+    const f=r.flags[0];
+    if(!f||f==='正常'){r.sinceMap={};r.since=null;return;}
+    if(!r.sinceMap[f]){
+      let t=r.updatedAt||null;
+      (r.history||[]).forEach(function(h){
+        const hf=(h.flags||[])[0];
+        if(hf&&hf!=='正常'&&(!t||new Date(h.time)<new Date(t)))t=h.time;
+      });
+      r.sinceMap[f]=t||new Date().toISOString();
+    }
+    r.since=r.sinceMap[f];
+  });
 }
 /* 当前真实数据的状态（编辑面板用） */
 function curFlags(id){const r=rec(id);return (r&&r.flags)||[];}
@@ -717,14 +749,16 @@ let modalSnapIndex=-1;      /* 模态框中选中的快照下标 */
 function renderBody(){
   ['front','back'].forEach(function(view){
     const g=document.getElementById(view==='front'?'gFront':'gBack');
-    /* 光晕/内透光/色差走的是 defs 里的副本，只同步状态色（不同步选中与闪烁） */
+    /* 光晕/内透光/色差走的是 defs 里的副本，只同步状态色与呼吸（不同步选中） */
     const src=document.getElementById(view==='front'?'srcF':'srcB');
     g.querySelectorAll('.part').forEach(function(el){
       const id=el.getAttribute('data-id');
-      el.setAttribute('class','part '+statusClass(id)+(id===selectedId&&!viewSnapshot?' selected':''));
+      const st=statusClass(id);
+      const br=st?' breathe':'';
+      el.setAttribute('class','part '+st+br+(id===selectedId&&!viewSnapshot?' selected':''));
       if(src){
         const s=src.querySelector('.part[data-id="'+id+'"]');
-        if(s)s.setAttribute('class','part '+statusClass(id));
+        if(s)s.setAttribute('class','part '+st+br);
       }
     });
   });
@@ -754,20 +788,45 @@ function renderStats(){
   document.getElementById('statTreat').textContent=treat;
   document.getElementById('statTrain').textContent=train;
 }
+/* ================= 状态筛选（v0.0.10） ================= */
+let listFilter='全部';
+function matchFilter(p){
+  if(listFilter==='全部')return true;
+  const f=flagsOf(p.id);
+  return !!(f.length&&f.indexOf(listFilter)>=0);
+}
+function renderFilterBar(){
+  document.querySelectorAll('#filterBar .fbtn').forEach(function(b){
+    b.classList.toggle('on',b.getAttribute('data-f')===listFilter);
+  });
+}
+document.getElementById('filterBar').addEventListener('click',function(ev){
+  const b=ev.target.closest('.fbtn');
+  if(!b)return;
+  const f=b.getAttribute('data-f');
+  listFilter=(f===listFilter)?'全部':f;   /* 再点一次恢复全部 */
+  renderFilterBar();renderPartList();
+});
 function renderPartList(){
   const box=document.getElementById('ovList');
-  let html='';
+  let html='',total=0;
   REGION_ORDER.forEach(function(reg){
+    const items=PARTS.filter(function(p){return p.region===reg&&matchFilter(p);});
+    if(!items.length)return;              /* 筛选时空分组整体隐藏 */
+    total+=items.length;
     html+='<div class="grp">'+esc(reg)+'</div><div class="grp-box">';
-    PARTS.filter(function(p){return p.region===reg;}).forEach(function(p){
+    items.forEach(function(p){
       const f=flagsOf(p.id);
-      const d=(!viewSnapshot&&f.length&&f[0]!=='正常')?abnormalDays(p.id):-1;
-      const dHtml=d>=0?'<span class="pl-days d-'+flagClass(f[0])+'">异常 '+d+' 天</span>':'';
+      const days=(!viewSnapshot&&f.length&&f[0]!=='正常')?statusDays(p.id,f[0]):-1;
+      const dHtml=days>=0?'<span class="pl-days d-'+flagClass(f[0])+'">'+esc(f[0])+' '+days+' 天</span>':'';
       html+='<div class="pl-item" data-id="'+p.id+'"'+(p.id===selectedId&&!viewSnapshot?' data-active="1"':'')+
         '><span class="pn'+(f.length?'':' dim')+'">'+esc(p.name)+'</span>'+chipsHtml(f)+dHtml+'</div>';
     });
     html+='</div>';
   });
+  if(listFilter!=='全部'&&!total){
+    html='<div class="filter-empty">当前没有「'+esc(listFilter)+'」状态的部位<br>点击上方按钮恢复全部</div>';
+  }
   box.innerHTML=html;
   box.querySelectorAll('.pl-item').forEach(function(it){
     if(it.getAttribute('data-active'))it.classList.add('active');
@@ -790,11 +849,11 @@ function renderPanel(){
   document.getElementById('ckTrain').checked=active==='需锻炼';
   document.getElementById('ckOk').checked=(active!=='不适'&&active!=='需治疗'&&active!=='需锻炼');
   document.getElementById('pNote').value=r?r.note||'':'';
-  /* 异常天数：显示在部位名称右侧，颜色跟随当前状态 */
+  /* 分状态天数：显示在部位名称右侧，颜色跟随当前状态（v0.0.10 起按状态分别计数） */
   const dEl=document.getElementById('pDays');
-  const days=abnormalDays(p.id);
+  const days=statusDays(p.id,active);
   if(days>=0&&active!=='正常'){
-    dEl.textContent='异常 '+days+' 天';
+    dEl.textContent=active+' '+days+' 天';
     dEl.className='p-days d-'+flagClass(active);
   }else{
     dEl.textContent='';dEl.className='p-days';
@@ -863,7 +922,8 @@ function collectParts(){
   PARTS.forEach(function(p){
     const r=data.parts[p.id];
     if(r&&((r.flags&&r.flags.length)||r.note)){
-      parts[p.id]={flags:(r.flags||[]).slice(),note:r.note||'',since:r.since||null};
+      parts[p.id]={flags:(r.flags||[]).slice(),note:r.note||'',since:r.since||null,
+        sinceMap:(r.sinceMap&&typeof r.sinceMap==='object')?Object.assign({},r.sinceMap):null};
     }
   });
   return parts;
@@ -1274,11 +1334,14 @@ function savePart(msg){
   const now=new Date().toISOString();
   const r=data.parts[selectedId]||{};
   if(!r.history)r.history=[];
-  const prevFlag=(r.flags&&r.flags[0])||'';
   r.name=PMAP[selectedId].name;r.flags=flags;r.note=note;r.updatedAt=now;
-  /* 异常天数：首次异常起算；换异常类型不重算；恢复正常清零 */
-  if(flags[0]==='正常'){r.since=null;}
-  else if(!r.since||prevFlag==='正常'||!prevFlag){r.since=now;}
+  /* 分状态天数（v0.0.10）：各异常状态各自起算、互不覆盖；恢复正常全部清零 */
+  if(!r.sinceMap||typeof r.sinceMap!=='object')r.sinceMap={};
+  if(flags[0]==='正常'){r.sinceMap={};r.since=null;}
+  else{
+    if(!r.sinceMap[flags[0]])r.sinceMap[flags[0]]=now;
+    r.since=r.sinceMap[flags[0]];   /* 兼容旧导出：since=当前状态起算时间 */
+  }
   /* 1 分钟内同状态的连续保存（如连续输入备注）合并为上一条历史，避免刷屏 */
   const lastH=r.history[r.history.length-1];
   if(lastH&&(new Date(now)-new Date(lastH.time))<60000&&(lastH.flags||[]).join()===flags.join()){
@@ -1329,21 +1392,6 @@ document.getElementById('btnClearPart').addEventListener('click',function(){
 
 /* 载入 / 清空 */
 /* 载入数据文件 */
-function normalizeSince(d){
-  Object.keys(d.parts).forEach(function(id){
-    const r=d.parts[id];
-    if(!r||!r.flags||!r.flags.length)return;
-    if(r.flags[0]==='正常'){r.since=null;return;}
-    if(!r.since){
-      let t=r.updatedAt||null;
-      (r.history||[]).forEach(function(h){
-        const hf=(h.flags||[])[0];
-        if(hf&&hf!=='正常'&&(!t||new Date(h.time)<new Date(t)))t=h.time;
-      });
-      r.since=t||new Date().toISOString();
-    }
-  });
-}
 function applyImport(text){
   try{
     const o=JSON.parse(text);
@@ -1354,7 +1402,7 @@ function applyImport(text){
     if(!confirm('载入将覆盖当前全部记录（当前 '+Object.keys(data.parts).length+' 个部位），确认继续？'))return false;
     data={version:o.version||1,owner:OWNER,updatedAt:o.updatedAt||null,parts:o.parts,
       snapshots:Array.isArray(o.snapshots)?o.snapshots:[],dirty:false};
-    normalizeSince(data);
+    normalizeSinceMap(data);
     viewSnapshot=null;selectedId=null;
     document.getElementById('modalAdv').className='modal';
     document.getElementById('modalFiles').className='modal';
@@ -1478,41 +1526,25 @@ document.addEventListener('keydown',function(ev){
   }
 });
 
-/* ================= 扫描线：扫过异常部位时闪烁一次 ================= */
+/* ================= 扫描带：异常部位呼吸光 + 掠过时柔和增强（v0.0.10） =================
+   不再用「扫到才闪 0.5 秒」的单次动画：异常部位始终缓慢呼吸，
+   光带（亮头在扫描位置、向上 54px 拖尾）压到哪个部位，哪个部位描边/填充柔和提亮，
+   由 CSS transition 负责淡入淡出，全程无跳变 */
 const SCAN_PERIOD=5000;          /* 一轮扫描时长 5 秒 */
 const scanLine=document.getElementById('scanline');
 const scanWrap=document.getElementById('stage');
 let scanStart=Date.now();
-let scanLastProg=0;
-let scannedSet=new Set();
-function flashClassOf(id){
-  const f=flagsOf(id);
-  if(f.indexOf('不适')>=0)return 'flash-discomfort';
-  if(f.indexOf('需治疗')>=0)return 'flash-treat';
-  if(f.indexOf('需锻炼')>=0)return 'flash-train';
-  return null;                   /* 正常 / 无记录 不闪 */
-}
 function scanTick(){
   const now=Date.now();
   const prog=((now-scanStart)%SCAN_PERIOD)/SCAN_PERIOD;
-  if(prog<scanLastProg)scannedSet=new Set();   /* 新一轮扫描，重置已闪集合 */
-  scanLastProg=prog;
   scanLine.style.top=(2+prog*96)+'%';
   const wr=scanWrap.getBoundingClientRect();
-  const y=wr.top+(2+prog*96)/100*wr.height;
+  const y=wr.top+(2+prog*96)/100*wr.height;   /* 亮头所在屏幕坐标 */
+  const bandTop=y-54;                          /* 拖尾覆盖亮头上方 54px */
   const gEl=document.getElementById(currentView==='front'?'gFront':'gBack');
   gEl.querySelectorAll('.part').forEach(function(el){
-    const id=el.getAttribute('data-id');
-    if(scannedSet.has(id))return;
     const r=el.getBoundingClientRect();
-    if(y>=r.top&&y<=r.bottom){
-      scannedSet.add(id);
-      const cls=flashClassOf(id);
-      if(cls){
-        el.classList.add(cls);
-        setTimeout(function(){el.classList.remove(cls);},520);
-      }
-    }
+    el.classList.toggle('scan-up',r.bottom>=bandTop&&r.top<=y);
   });
 }
 setInterval(scanTick,40);
