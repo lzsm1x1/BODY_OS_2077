@@ -35,6 +35,7 @@ align_c = Alignment(horizontal="center", vertical="center")
 align_l = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
 D = date(2026, 11, 10)
+D2 = date(2026, 11, 11)
 
 # (编号, 所属版本, 模块, 需求描述, 来源, 状态, 日期, 备注)
 REQS = [
@@ -104,6 +105,7 @@ REQS = [
     ("R64", "v0.0.11", "视觉", "呼吸光加强为双拍心跳：每 2.6 秒两次脉冲（10%/30% 时间点），填充由淡底抬到接近实心（透明度约 3 倍）、描边由 1.5px 涨到 3.2px 亮色、外发光由 2px 扩到 8px+24px+48px 三层，暗亮差约 2.5 倍；回落仍保留可辨认的状态色", "用户", "已完成", D, "四个 keyframes 协同：breatheFillK/breatheStrokeK/breatheHaloK/breatheGlowK；defs 光晕层只做整层明暗，不叠滤镜以免反复重算模糊"),
     ("R65", "v0.0.11", "视觉", "扫描光带压住异常部位、以及悬停/选中时，直接定格在最亮一帧；不取消动画本身，光带离开或取消选中后接着原节奏继续，不会重头开始产生顿挫", "用户", "已完成", D, "用 !important 覆盖动画值（级联上 !important 高于动画），而不是 animation:none"),
     ("R66", "v0.0.11", "视觉", "尊重系统「减少动态效果」设置：开启 prefers-reduced-motion 时自动停用呼吸光，只保留状态色与扫描增强", "AI", "已完成", D, "无障碍兜底"),
+    ("R67", "v0.0.12", "视觉", "闪烁改为事件触发型：部位平时完全静止（静态底色+常态描边，不再按周期呼吸），只有扫描亮头压到部位的一瞬间触发一次约 0.66s 单脉冲（0→16% 冲到峰值，随后衰减回静态色）；所有部位扫到都闪（正常部位轻微一亮作扫描进度反馈），异常部位峰值沿用双拍心跳亮度（填充近实心、描边 3.2px、外发光三层）闪得更猛；每轮扫描每个部位只闪一次（边沿触发去重）；悬停/选中定格峰值常亮且被扫过时不闪", "用户", "已完成", D2, "keyframes：scanFlashFillK/scanFlashStrokeK/scanFlashHaloK/scanFlashDimK；scan-up 类由 JS 定时器在脉冲播完后移除，保证衰减完整；reduced-motion 下自动停用"),
 ]
 
 HEADERS = ["需求编号", "所属版本", "模块", "需求描述", "来源", "状态", "提出日期", "备注"]
@@ -149,7 +151,7 @@ for r in range(data_end + 1, row_end + 1):
             cell.number_format = "YYYY-MM-DD"
         cell.alignment = align_l if ci in (4, 8) else align_c
 
-dv_ver = DataValidation(type="list", formula1='"v0.0.1,v0.0.2,v0.0.3,v0.0.4,v0.0.5,v0.0.6,v0.0.7,v0.0.8,v0.0.9,v0.0.10,v0.1.0,v1.0.0"', allow_blank=True)
+dv_ver = DataValidation(type="list", formula1='"v0.0.1,v0.0.2,v0.0.3,v0.0.4,v0.0.5,v0.0.6,v0.0.7,v0.0.8,v0.0.9,v0.0.10,v0.0.11,v0.0.12,v0.1.0,v1.0.0"', allow_blank=True)
 dv_mod = DataValidation(type="list", formula1='"整体,视觉,部位,交互,数据,历史,项目"', allow_blank=True)
 dv_src = DataValidation(type="list", formula1='"用户,方案默认,AI提问"', allow_blank=True)
 dv_status = DataValidation(type="list", formula1='"已确认,待确认,新增,已完成,已放弃"', allow_blank=True)

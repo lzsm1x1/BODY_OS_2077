@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 义体维护终端 v0.0.11 -->
+<!-- 义体维护终端 v0.0.12 -->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -119,14 +119,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .svg-wrap svg.show{display:block}
 /* ---------- 人体部位 ---------- */
 .part{cursor:pointer;outline:none;transition:filter .15s;
-  --c:rgba(0,240,255,.55);--c-hi:var(--cyan);--f:var(--cyan-faint);--f-hi:rgba(0,240,255,.28)}
+  --c:rgba(0,240,255,.55);--c-hi:var(--cyan);--f:var(--cyan-faint);--f-hi:rgba(0,240,255,.28);
+  /* 正常部位被扫描线点到的轻闪峰值（异常部位在各状态类里覆盖成更高的值） */
+  --f-pk:rgba(0,240,255,.38);--s-pk:var(--c-hi)}
 .part .sl{fill:none;stroke:var(--c);stroke-linecap:round;transition:stroke .5s ease,stroke-width .5s ease}
 .part .sf{fill:var(--f);stroke:var(--c);stroke-width:1.5;transition:fill .5s ease,stroke .5s ease,stroke-width .5s ease}
-.part:hover,.part:focus-visible,.part.selected{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 16px var(--c))}
-.part:hover .sl,.part:focus-visible .sl,.part.selected .sl{stroke:var(--c-hi)}
-.part:hover .sf,.part:focus-visible .sf,.part.selected .sf{fill:var(--f-hi);stroke:var(--c-hi)}
+/* 悬停/选中 = 事件型常亮高亮（定格在峰值，不闪）；
+   悬停/选中被扫过时不闪：!important 盖过扫描脉冲动画（v0.0.12） */
+.part:hover,.part:focus-visible,.part.selected{
+  filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 22px var(--c))!important}
+.part:hover .sl,.part:focus-visible .sl,.part.selected .sl{
+  stroke:var(--s-pk)!important;stroke-width:3.2!important}
+.part:hover .sf,.part:focus-visible .sf,.part.selected .sf{
+  fill:var(--f-pk)!important;stroke:var(--s-pk)!important;stroke-width:3.2!important}
 .part.selected .sf{stroke-dasharray:5 3}
-/* 状态配色：--f-pk/--s-pk = 呼吸脉冲最亮瞬间的填充 / 描边（v0.0.11） */
+/* 状态配色：--f-pk/--s-pk = 被扫描线点到的脉冲最亮瞬间的填充 / 描边（v0.0.11 起） */
 .st-discomfort{--c:var(--yellow);--c-hi:#fdf75c;--f:rgba(252,238,10,.16);--f-hi:rgba(252,238,10,.34);
   --f-pk:rgba(252,238,10,.62);--s-pk:#fff27a}
 .st-treat{--c:var(--red);--c-hi:#ff6b97;--f:rgba(255,42,109,.2);--f-hi:rgba(255,42,109,.4);
@@ -144,52 +151,40 @@ header{display:flex;align-items:center;justify-content:space-between;padding:8px
 .hud-ring{animation:hudDash 22s linear infinite}
 @keyframes hudDash{from{stroke-dashoffset:0}to{stroke-dashoffset:-336}}
 .hud-t{font-family:var(--font);font-size:11px;letter-spacing:2px;fill:#ffb02e;opacity:.72}
-/* 呼吸光 v0.0.11：异常部位按「双拍心跳」节奏闪动——每轮两次脉冲（10% / 30%），
-   其余时间压暗待机，约 2.6 秒一轮。三重变化叠加：
-     ① 填充：常态是淡淡的底色（--f），脉冲时整块亮起来（--f-pk，透明度约 4 倍）；
-     ② 描边：由 1.5px 常态色胀到 3.2px 的亮色粗线（--s-pk）；
+/* 扫描闪 v0.0.12：闪烁是「事件触发」——部位平时完全静止（静态底色 + 常态描边，
+   不再按周期呼吸），只有扫描线亮头压到部位的一瞬间触发一次约 0.66s 的单脉冲：
+   0→16% 快速冲到峰值（快速闪一下），随后 ease-out 衰减回静态色，然后彻底安静。
+   峰值沿用 v0.0.11 的三重杠杆（保留平滑感）：
+     ① 填充：静态淡底（--f）→ 脉冲整块亮起（--f-pk）；
+     ② 描边：1.5px 常态色 → 3.2px 亮色粗线（--s-pk）；
      ③ 外发光：几乎无光 → 8px+24px+48px 三层光晕。
-   峰值时整块部位的观感亮度约是常态的 2~3 倍、发光范围约 10 倍，
-   缩小看整页也能一眼抓到；全程 ease-in-out，不跳变，且谷值仍是可辨认的状态色。
-   defs 副本（外发光/内透光/色差层）只做整层明暗，不叠滤镜以免反复重算大范围模糊 */
-@keyframes breatheFillK{
-  0%,100%{fill:var(--f)}
-  10%,14%{fill:var(--f-pk)}
-  22%{fill:var(--f-hi)}
-  30%,34%{fill:var(--f-pk)}
-  55%{fill:var(--f)}}
-@keyframes breatheStrokeK{
-  0%,100%{stroke:var(--c);stroke-width:1.5}
-  10%,14%{stroke:var(--s-pk);stroke-width:3.2}
-  22%{stroke:var(--c-hi);stroke-width:2.2}
-  30%,34%{stroke:var(--s-pk);stroke-width:3.2}
-  55%{stroke:var(--c);stroke-width:1.5}}
-@keyframes breatheHaloK{
-  0%,100%{filter:drop-shadow(0 0 2px var(--c))}
-  10%,14%{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))}
-  22%{filter:drop-shadow(0 0 4px var(--c))}
-  30%,34%{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))}
-  55%{filter:drop-shadow(0 0 2px var(--c))}}
-@keyframes breatheGlowK{0%,100%{opacity:.45}10%,14%{opacity:1}22%{opacity:.65}30%,34%{opacity:1}55%{opacity:.45}}
-.part.breathe{animation:breatheHaloK 2.6s ease-in-out infinite}
-.part.breathe .sf{animation:breatheFillK 2.6s ease-in-out infinite,breatheStrokeK 2.6s ease-in-out infinite}
-.part.breathe .sl{animation:breatheStrokeK 2.6s ease-in-out infinite}
-.part.breathe-glow{animation:breatheGlowK 2.6s ease-in-out infinite}
-/* 扫描带掠过：柔和增强（描边与填充经 .5s 缓动平滑过渡，进出都不突兀） */
-.part.scan-up .sf{fill:var(--f-hi);stroke:var(--c-hi);stroke-width:2.3}
-.part.scan-up .sl{stroke:var(--c-hi)}
-/* 光带压住异常部位 / 悬停 / 选中时，用 !important 盖过呼吸动画，
-   让这一下停在「最亮一帧」。不写 animation:none —— 动画仍在底下继续，
-   光带离开或取消选中后接着原来的节奏走，不会从 0 重头开始（避免闪一下顿挫） */
-.part.breathe.scan-up{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))!important}
-.part.breathe.scan-up .sf,.part.breathe:hover .sf,.part.breathe:focus-visible .sf,.part.breathe.selected .sf{
-  fill:var(--f-pk)!important;stroke:var(--s-pk)!important;stroke-width:3.2!important}
-.part.breathe.scan-up .sl,.part.breathe:hover .sl,.part.breathe:focus-visible .sl,.part.breathe.selected .sl{
-  stroke:var(--s-pk)!important;stroke-width:3.2!important}
-.part.breathe:hover,.part.breathe:focus-visible,.part.breathe.selected{
-  filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 22px var(--c))!important}
+   异常部位峰值高（缩到很小也能一眼抓到），正常部位只轻微一亮（扫描进度反馈）。
+   触发/移除时机由 JS scanTick 控制：scan-up 类在脉冲播完后才移除，
+   保证衰减完整走完、不中途掐断跳变；每轮扫描每个部位只闪一次。
+   defs 副本（外发光/内透光/色差层）只做整层明暗脉冲，不叠滤镜以免反复重算大范围模糊 */
+@keyframes scanFlashFillK{
+  0%{fill:var(--f)}
+  16%{fill:var(--f-pk)}
+  100%{fill:var(--f)}}
+@keyframes scanFlashStrokeK{
+  0%{stroke:var(--c);stroke-width:1.5}
+  16%{stroke:var(--s-pk);stroke-width:3.2}
+  100%{stroke:var(--c);stroke-width:1.5}}
+@keyframes scanFlashHaloK{
+  0%{filter:drop-shadow(0 0 2px var(--c))}
+  16%{filter:drop-shadow(0 0 8px var(--c-hi)) drop-shadow(0 0 24px var(--c)) drop-shadow(0 0 48px var(--c))}
+  100%{filter:drop-shadow(0 0 2px var(--c))}}
+@keyframes scanFlashDimK{0%,100%{opacity:.45}16%{opacity:1}}
+/* 外发光滤镜脉冲只给 #gFront/#gBack 里的本体——defs 副本在模糊层里，叠滤镜会反复重算 */
+#gFront .part.scan-up,#gBack .part.scan-up{animation:scanFlashHaloK .66s ease-out 1}
+.part.scan-up .sf{animation:scanFlashFillK .66s ease-out 1,scanFlashStrokeK .66s ease-out 1}
+.part.scan-up .sl{animation:scanFlashStrokeK .66s ease-out 1}
+/* 异常部位的 defs 副本平时压暗待机，被扫到时整层明暗脉冲一下 */
+.part.breathe-glow{opacity:.45}
+.part.breathe-glow.scan-up{animation:scanFlashDimK .66s ease-out 1}
 @media (prefers-reduced-motion:reduce){
-  .part.breathe,.part.breathe .sf,.part.breathe .sl,.part.breathe-glow{animation:none}
+  #gFront .part.scan-up,#gBack .part.scan-up,.part.scan-up .sf,.part.scan-up .sl,
+  .part.breathe-glow.scan-up{animation:none}
 }
 /* ---------- 悬浮提示 ---------- */
 #tip{position:fixed;z-index:100;pointer-events:none;display:none;font-size:12px;
@@ -792,16 +787,15 @@ let modalSnapIndex=-1;      /* 模态框中选中的快照下标 */
 function renderBody(){
   ['front','back'].forEach(function(view){
     const g=document.getElementById(view==='front'?'gFront':'gBack');
-    /* 光晕/内透光/色差走的是 defs 里的副本，只同步状态色与呼吸（不同步选中） */
+    /* 光晕/内透光/色差走的是 defs 里的副本，只同步状态色（扫描闪的类由 scanTick 边沿同步） */
     const src=document.getElementById(view==='front'?'srcF':'srcB');
     g.querySelectorAll('.part').forEach(function(el){
       const id=el.getAttribute('data-id');
       const st=statusClass(id);
-      const br=st?' breathe':'';
-      el.setAttribute('class','part '+st+br+(id===selectedId&&!viewSnapshot?' selected':''));
+      el.setAttribute('class','part '+st+(id===selectedId&&!viewSnapshot?' selected':''));
       if(src){
         const s=src.querySelector('.part[data-id="'+id+'"]');
-        /* 副本用 breathe-glow：只做整层明暗，不叠滤镜（副本本身已在模糊层里） */
+        /* 异常副本带 breathe-glow：平时压暗待机，被扫到时整层脉冲（不叠滤镜） */
         if(s)s.setAttribute('class','part '+st+(st?' breathe-glow':''));
       }
     });
@@ -1570,14 +1564,18 @@ document.addEventListener('keydown',function(ev){
   }
 });
 
-/* ================= 扫描带：异常部位呼吸光 + 掠过时柔和增强（v0.0.10） =================
-   不再用「扫到才闪 0.5 秒」的单次动画：异常部位始终缓慢呼吸，
-   光带（亮头在扫描位置、向上 54px 拖尾）压到哪个部位，哪个部位描边/填充柔和提亮，
-   由 CSS transition 负责淡入淡出，全程无跳变 */
+/* ================= 扫描带：事件触发闪烁（v0.0.12） =================
+   部位平时完全静止；扫描亮头（亮头在扫描位置、向上 54px 拖尾）压到哪个部位，
+   哪个部位就快速闪一下（0→16% 冲到峰值，随后 0.66s 内衰减回静态色）。
+   边沿触发 + Set 去重：每轮扫描每个部位只闪一次，长条部位（躯干）不会被压住期间连闪。
+   scan-up 类由 setTimeout 在脉冲播完后才移除——动画完整衰减到位，
+   不会被中途掐断跳变（也避开「动画移除不触发 transition」的坑） */
 const SCAN_PERIOD=5000;          /* 一轮扫描时长 5 秒 */
+const FLASH_MS=660;              /* 脉冲时长，与 CSS animation 时长一致 */
 const scanLine=document.getElementById('scanline');
 const scanWrap=document.getElementById('stage');
 let scanStart=Date.now();
+const flashed=new Set();         /* 本轮扫描已闪过的部位 */
 function scanTick(){
   const now=Date.now();
   const prog=((now-scanStart)%SCAN_PERIOD)/SCAN_PERIOD;
@@ -1586,9 +1584,22 @@ function scanTick(){
   const y=wr.top+(2+prog*96)/100*wr.height;   /* 亮头所在屏幕坐标 */
   const bandTop=y-54;                          /* 拖尾覆盖亮头上方 54px */
   const gEl=document.getElementById(currentView==='front'?'gFront':'gBack');
+  const src=document.getElementById(currentView==='front'?'srcF':'srcB');
   gEl.querySelectorAll('.part').forEach(function(el){
     const r=el.getBoundingClientRect();
-    el.classList.toggle('scan-up',r.bottom>=bandTop&&r.top<=y);
+    if(r.bottom>=bandTop&&r.top<=y){
+      if(!flashed.has(el)){
+        flashed.add(el);
+        const id=el.getAttribute('data-id');
+        const copy=src?src.querySelector('.part[data-id="'+id+'"]'):null;
+        el.classList.add('scan-up');
+        if(copy)copy.classList.add('scan-up');
+        setTimeout(function(){
+          el.classList.remove('scan-up');
+          if(copy)copy.classList.remove('scan-up');
+        },FLASH_MS);
+      }
+    }else flashed.delete(el);
   });
 }
 setInterval(scanTick,40);
